@@ -7,7 +7,7 @@ import { useManagedContent } from "../lib/content";
 import SafeHtml from "../components/SafeHtml";
 
 type HomeNewsItem = (typeof NEWS)[number] & { featured?: boolean; featuredOrder?: number };
-type HomeBlock = { title: string; summary: string; tag: string; path: string; image?: string };
+type HomeBlock = { title: string; summary: string; tag: string; path: string; image?: string; hidden?: boolean };
 
 const CATEGORY_COLORS: Record<NewsCategory, string> = {
   institute: "bg-blue-100 text-blue-700",
@@ -64,29 +64,31 @@ type HeroSlideCardProps = {
   slides: HomeNewsItem[];
   activeIndex: number;
   exiting?: boolean;
+  /** Боковая колонка скрыта — слайдер занимает всю ширину и раскладка меняется. */
+  wide?: boolean;
   onSelect: (index: number) => void;
   onPrevious: () => void;
   onNext: () => void;
 };
 
-function HeroSlideCard({ item, slides, activeIndex, exiting = false, onSelect, onPrevious, onNext }: HeroSlideCardProps) {
+function HeroSlideCard({ item, slides, activeIndex, exiting = false, wide = false, onSelect, onPrevious, onNext }: HeroSlideCardProps) {
   return (
     <div
       className={`${exiting ? "hero-slide-exit absolute inset-0 pointer-events-none" : "hero-slide-enter relative"} flex min-h-[300px] flex-col sm:flex-row`}
       aria-hidden={exiting || undefined}
     >
-      <div className="flex-1 p-6 flex flex-col justify-between">
-        <div>
+      <div className="flex-1 min-w-0 p-5 sm:p-6 flex flex-col justify-between">
+        <div className={wide ? "lg:max-w-[70ch]" : undefined}>
           <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded mb-3 ${CATEGORY_COLORS[item.category]}`}>
             {CATEGORY_LABELS[item.category]}
           </span>
           <p className="text-xs text-muted-foreground mb-2">{formatDate(item.date)}</p>
-          <h2 className="text-lg font-bold leading-snug text-foreground mb-3" style={{ fontFamily: "var(--font-display)" }}>
+          <h2 className={`text-lg ${wide ? "lg:text-xl" : ""} font-bold leading-snug text-foreground mb-3`} style={{ fontFamily: "var(--font-display)" }}>
             {item.title}
           </h2>
           <SafeHtml html={item.excerpt} className="text-sm text-muted-foreground leading-relaxed line-clamp-4" />
         </div>
-        <div className="flex items-center gap-4 mt-4">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-4">
           <Link
             to={`/news/${item.id}`}
             className="flex items-center gap-2 bg-accent text-accent-foreground text-sm px-4 py-2 rounded hover:bg-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -121,7 +123,7 @@ function HeroSlideCard({ item, slides, activeIndex, exiting = false, onSelect, o
         </div>
       </div>
       {item.image && (
-        <div className="w-full sm:w-[320px] h-[180px] sm:h-auto bg-secondary overflow-hidden shrink-0">
+        <div className={`w-full h-[180px] sm:h-auto sm:w-[320px] ${wide ? "lg:w-[44%]" : ""} bg-secondary overflow-hidden shrink-0`}>
           <img src={item.image} alt={item.title} loading="lazy" className="w-full h-full object-cover" />
         </div>
       )}
@@ -162,11 +164,13 @@ function HeroSlider({ news, blocks }: { news: HomeNewsItem[]; blocks: Record<str
     setPreviousSlide(slide);
     setSlide(normalized);
   };
+  // Управляется из визуального редактора: block:home:cards, metadata.hidden.
+  const showCards = blocks.cards?.hidden !== true;
 
   return (
-    <div className="flex gap-5">
+    <div className={`flex ${showCards ? "lg:gap-5" : ""}`}>
       {/* Main slide */}
-      <div className="relative flex-1 bg-white rounded-sm overflow-hidden shadow-sm border border-border min-h-[300px]">
+      <div className="relative flex-1 min-w-0 bg-white rounded-sm overflow-hidden shadow-sm border border-border min-h-[300px]">
         {previousItem && (
           <HeroSlideCard
             key={`previous-${previousItem.id}`}
@@ -174,6 +178,7 @@ function HeroSlider({ news, blocks }: { news: HomeNewsItem[]; blocks: Record<str
             slides={slides}
             activeIndex={slide}
             exiting
+            wide={!showCards}
             onSelect={selectSlide}
             onPrevious={() => selectSlide(slide - 1)}
             onNext={() => selectSlide(slide + 1)}
@@ -184,6 +189,7 @@ function HeroSlider({ news, blocks }: { news: HomeNewsItem[]; blocks: Record<str
           item={item}
           slides={slides}
           activeIndex={slide}
+          wide={!showCards}
           onSelect={selectSlide}
           onPrevious={() => selectSlide(slide - 1)}
           onNext={() => selectSlide(slide + 1)}
@@ -191,6 +197,7 @@ function HeroSlider({ news, blocks }: { news: HomeNewsItem[]; blocks: Record<str
       </div>
 
       {/* Right sidebar cards */}
+      {showCards && (
       <div className="hidden lg:flex flex-col gap-2 w-[280px] shrink-0 self-stretch">
         {[
           {
@@ -233,6 +240,7 @@ function HeroSlider({ news, blocks }: { news: HomeNewsItem[]; blocks: Record<str
           </Link>
         ))}
       </div>
+      )}
     </div>
   );
 }
@@ -309,7 +317,7 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
 export default function HomePage() {
   const { items: managedNews, error: newsError } = useManagedContent("news");
   const { items: managedBlocks, error: blocksError } = useManagedContent("visual_block");
-  const blocks = Object.fromEntries((blocksError ? [] : managedBlocks).filter((item) => item.slug.startsWith("block:home:")).map((item) => [item.slug.replace("block:home:", ""), { title: item.title, summary: item.summary, tag: String(item.metadata.tag ?? ""), path: String(item.metadata.path ?? ""), image: item.image_url || undefined }])) as Record<string, HomeBlock>;
+  const blocks = Object.fromEntries((blocksError ? [] : managedBlocks).filter((item) => item.slug.startsWith("block:home:")).map((item) => [item.slug.replace("block:home:", ""), { title: item.title, summary: item.summary, tag: String(item.metadata.tag ?? ""), path: String(item.metadata.path ?? ""), image: item.image_url || undefined, hidden: item.metadata.hidden === true }])) as Record<string, HomeBlock>;
   const news: HomeNewsItem[] = !newsError && managedNews.length > 0 ? managedNews.map((item) => ({
     id: item.slug,
     title: item.title,

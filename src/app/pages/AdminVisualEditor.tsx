@@ -3,6 +3,8 @@ import {
   BookOpen,
   Calendar,
   ChevronRight,
+  Eye,
+  EyeOff,
   MousePointer2,
   Newspaper,
   Pencil,
@@ -225,6 +227,12 @@ const DEFAULT_BLOCKS: EditableBlock[] = [
   },
 ];
 
+/**
+ * Служебная запись видимости боковой колонки главной страницы.
+ * Содержимого не имеет: в metadata.hidden хранится только флаг.
+ */
+const HERO_CARDS_SLUG = "block:home:cards";
+
 const BLOCK_SLUGS = {
   homeCards: ["block:home:program", "block:home:journal", "block:home:congratulations"],
   scienceLeft: "block:home:science-left",
@@ -241,6 +249,8 @@ export default function AdminVisualEditor({
   const [blocks, setBlocks] = useState<EditableBlock[]>(DEFAULT_BLOCKS);
   const [editing, setEditing] = useState<EditableBlock | null>(null);
   const [page, setPage] = useState<"home" | "education">("home");
+  const [cardsHidden, setCardsHidden] = useState(false);
+  const [savingVisibility, setSavingVisibility] = useState(false);
 
   async function load() {
     let records: ManagedContent[] = [];
@@ -249,6 +259,7 @@ export default function AdminVisualEditor({
     } catch (reason) {
       alert(`Не удалось загрузить блоки: ${reason instanceof Error ? reason.message : "неизвестная ошибка"}`);
     }
+    setCardsHidden(records.find((item) => item.slug === HERO_CARDS_SLUG)?.metadata.hidden === true);
     setBlocks(
       DEFAULT_BLOCKS.map((fallback) => {
         const record = records.find((item) => item.slug === fallback.slug);
@@ -312,6 +323,31 @@ export default function AdminVisualEditor({
     await load();
   }
 
+  async function toggleCardsVisibility() {
+    const hidden = !cardsHidden;
+    setSavingVisibility(true);
+    try {
+      await contentRepository.upsert([{
+        type: "visual_block",
+        slug: HERO_CARDS_SLUG,
+        title: "Боковые карточки на главной",
+        summary: "",
+        body: "",
+        category: "visual-block",
+        status: "published",
+        published_at: new Date().toISOString(),
+        image_url: "",
+        file_url: "",
+        metadata: { hidden },
+      }]);
+      setCardsHidden(hidden);
+    } catch (reason) {
+      alert(`Не удалось изменить видимость блока: ${reason instanceof Error ? reason.message : "неизвестная ошибка"}`);
+    } finally {
+      setSavingVisibility(false);
+    }
+  }
+
   const blocksBySlug = Object.fromEntries(blocks.map((block) => [block.slug, block])) as Record<string, EditableBlock>;
   const getBlock = (slug: string) => blocksBySlug[slug] ?? DEFAULT_BLOCKS.find((block) => block.slug === slug)!;
   const cards = BLOCK_SLUGS.homeCards.map(getBlock);
@@ -365,7 +401,7 @@ export default function AdminVisualEditor({
           <div className="h-8 bg-primary" />
           {page === "home" ? (
             <div className="p-4 bg-slate-50">
-              <div className="grid lg:grid-cols-[1fr_250px] gap-3">
+              <div className={`grid gap-3 ${cardsHidden ? "" : "lg:grid-cols-[1fr_250px]"}`}>
                 <button
                   onClick={onManageNews}
                   className="group relative min-h-52 border-2 border-dashed border-accent/60 bg-white p-5 text-left hover:border-accent hover:bg-blue-50/30 transition-colors"
@@ -380,7 +416,23 @@ export default function AdminVisualEditor({
                     Нажмите, чтобы выбрать новости для главного слайдера
                   </p>
                 </button>
-                <div className="grid gap-2">
+                <div className="grid gap-2 content-start">
+                  <button
+                    type="button"
+                    onClick={toggleCardsVisibility}
+                    disabled={savingVisibility}
+                    aria-pressed={!cardsHidden}
+                    className="flex items-center justify-center gap-2 rounded border border-slate-300 bg-white px-3 py-2 text-[11px] font-semibold text-primary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                  >
+                    {cardsHidden ? <EyeOff size={14} /> : <Eye size={14} />}
+                    {cardsHidden ? "Боковой блок скрыт — показать" : "Боковой блок виден — скрыть"}
+                  </button>
+                  <p className="text-[10px] leading-snug text-muted-foreground">
+                    {cardsHidden
+                      ? "На сайте слайдер новостей занимает всю ширину."
+                      : "На сайте блок стоит справа от слайдера на экранах от 1024 px."}
+                  </p>
+                  <div className={`grid gap-2 ${cardsHidden ? "opacity-40" : ""}`}>
                   {cards.map((block, index) => {
                     const Icon =
                       index === 0
@@ -413,6 +465,7 @@ export default function AdminVisualEditor({
                       </button>
                     );
                   })}
+                  </div>
                 </div>
               </div>
               <div className="grid sm:grid-cols-2 mt-3 bg-[#141830] text-white">

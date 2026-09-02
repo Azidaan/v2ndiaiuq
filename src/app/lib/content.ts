@@ -23,6 +23,7 @@ export interface ContentMetadata {
   ext?: string;
   tag?: string;
   path?: string;
+  hidden?: boolean;
   tableTitle?: string;
   tableRows?: unknown[];
   tuitionTables?: unknown[];
