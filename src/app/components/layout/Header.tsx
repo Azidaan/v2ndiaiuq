@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useLayoutEffect, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router";
-import { Search, Mail, ChevronDown, ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
+import { Search, ChevronDown, ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
 import { NAV, type NavItem } from "../../data";
 import ipiiLogo from "../../../imports/ipii-logo.png";
 
@@ -240,17 +240,17 @@ export default function Header() {
             </button>
           </form>
 
-          {/* Controls */}
-          <div className="flex items-center gap-2 shrink-0 ml-2">
-            <a
-              href="mailto:gu_ipii@mail.ru"
-              className="flex items-center gap-1.5 border border-primary text-primary text-xs px-3 py-1.5 rounded hover:bg-primary hover:text-primary-foreground transition-colors"
+          {/* Controls — только мобильные: строка поиска скрыта ниже md, вместо неё лупа */}
+          <div className="flex items-center gap-2 shrink-0 ml-auto md:hidden">
+            <Link
+              to="/search"
+              aria-label="Поиск по сайту"
+              className="flex items-center border border-primary text-primary p-2 rounded hover:bg-primary hover:text-primary-foreground transition-colors"
             >
-              <Mail size={13} aria-hidden="true" />
-              <span className="hidden sm:inline">Написать нам</span>
-            </a>
+              <Search size={16} aria-hidden="true" />
+            </Link>
             <button
-              className="md:hidden p-2 rounded hover:bg-secondary transition-colors"
+              className="p-2 rounded hover:bg-secondary transition-colors"
               onClick={() => setMobileOpen((v) => !v)}
               aria-label={mobileOpen ? "Закрыть меню" : "Открыть меню"}
               aria-expanded={mobileOpen}
