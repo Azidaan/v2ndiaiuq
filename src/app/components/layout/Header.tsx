@@ -209,11 +209,14 @@ export default function Header() {
         {/* Top bar */}
         <div className="max-w-[1280px] mx-auto px-4 py-2.5 flex items-center gap-4">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 shrink-0 group" aria-label="На главную">
-            <img src={ipiiLogo} alt="" width="64" height="64" className="size-16 object-contain" aria-hidden="true" />
-            <div className="text-[11px] leading-tight text-gray-600 max-w-[200px] hidden sm:block">
-              <div>Федеральное государственное бюджетное научное учреждение</div>
-              <div className="font-bold text-[12px] text-primary mt-0.5">«Институт проблем искусственного интеллекта»</div>
+          <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0 group" aria-label="На главную">
+            <img src={ipiiLogo} alt="" width="64" height="64" className="size-11 sm:size-16 object-contain shrink-0" aria-hidden="true" />
+            {/* Ширина подобрана так, чтобы обе строки укладывались в одну каждая:
+                при 11px строка учреждения занимает 310px, название при 12px — 261px.
+                На телефоне места нет даже под одну из них, поэтому остаётся название. */}
+            <div className="min-w-0 leading-tight text-gray-600 sm:max-w-[330px]">
+              <div className="hidden text-[11px] sm:block">Федеральное государственное бюджетное научное учреждение</div>
+              <div className="font-bold text-[10px] sm:text-[12px] text-primary sm:mt-0.5">«Институт проблем искусственного интеллекта»</div>
             </div>
           </Link>
 
