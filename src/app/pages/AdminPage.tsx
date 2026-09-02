@@ -11,6 +11,7 @@ import {
   Pencil,
   Plus,
   Save,
+  Star,
   Strikethrough,
   Trash2,
   Underline,
@@ -197,6 +198,26 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
     [type],
   );
 
+  // Повторяет отбор слайдов в HeroSlider на главной: берутся отмеченные новости
+  // по возрастанию порядка, а если отмеченных нет — три последние опубликованные.
+  // Черновики на главную не попадают, поэтому в расчёт не идут.
+  const sliderPositions = useMemo(() => {
+    if (type !== "news") return new Map<string, number>();
+    const published = items
+      .filter((item) => item.status === "published")
+      .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+    const featured = published
+      .filter((item) => Boolean(item.metadata.featured))
+      .sort((a, b) => (Number(a.metadata.featuredOrder) || 999) - (Number(b.metadata.featuredOrder) || 999));
+    const slides = featured.length > 0 ? featured : published.slice(0, 3);
+    return new Map(slides.map((item, index) => [item.id, index + 1]));
+  }, [items, type]);
+
+  const hasFeatured = useMemo(
+    () => type === "news" && items.some((item) => item.status === "published" && Boolean(item.metadata.featured)),
+    [items, type],
+  );
+
   async function load() {
     setLoading(true);
     try {
@@ -368,6 +389,14 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
                             : "Черновик"}
                         </p>
                       </div>
+                      {type === "news" && (
+                        <SliderBadge
+                          position={sliderPositions.get(item.id)}
+                          featured={Boolean(item.metadata.featured)}
+                          draft={item.status !== "published"}
+                          automatic={!hasFeatured}
+                        />
+                      )}
                       {canWrite && <button
                         onClick={() => setEditing(item)}
                         title="Редактировать"
@@ -392,6 +421,47 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
       </div>
     </main>
   );
+}
+
+function SliderBadge({
+  position,
+  featured,
+  draft,
+  automatic,
+}: {
+  position?: number;
+  featured: boolean;
+  draft: boolean;
+  automatic: boolean;
+}) {
+  if (position) {
+    return (
+      <span
+        title={
+          automatic
+            ? "Отмеченных новостей нет, поэтому слайдер заполняется тремя последними опубликованными"
+            : "Новость отмечена для главного слайдера"
+        }
+        className="shrink-0 inline-flex items-center gap-1.5 rounded border border-accent/40 bg-accent/10 px-2 py-1 text-[11px] font-semibold text-accent"
+      >
+        <Star size={12} aria-hidden="true" />
+        На слайдере №{position}
+        {automatic && <span className="font-normal text-muted-foreground">авто</span>}
+      </span>
+    );
+  }
+  if (featured && draft) {
+    return (
+      <span
+        title="Новость отмечена для слайдера, но остаётся черновиком и на главную не попадёт"
+        className="shrink-0 inline-flex items-center gap-1.5 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700"
+      >
+        <Star size={12} aria-hidden="true" />
+        Слайдер: нужна публикация
+      </span>
+    );
+  }
+  return null;
 }
 
 function Editor({
