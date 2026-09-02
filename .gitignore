@@ -1,0 +1,10 @@
+node_modules/
+dist/
+vite-dev.log
+vite-dev.err.log
+.DS_Store
+.env
+.env.local
+uploads/
+.pnpm-store/
+backups/

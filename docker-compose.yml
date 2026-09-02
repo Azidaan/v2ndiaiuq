@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ipi
+      POSTGRES_USER: ipi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ipi -d ipi"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: guiaidn:latest
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ipi
+      DB_USER: ipi
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-local-development-password}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.ru}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-this-password}
+      UPLOAD_DIR: /app/uploads
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:3001"
+    volumes:
+      - uploads_data:/app/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
+  uploads_data:
