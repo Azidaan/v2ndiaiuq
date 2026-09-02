@@ -338,7 +338,9 @@ export default function AdminVisualEditor({
         published_at: new Date().toISOString(),
         image_url: "",
         file_url: "",
-        metadata: { hidden },
+        // tag и path обязательны: content_items_visual_block_check требует эти ключи
+        // у каждой строки visual_block. Для служебной записи они пустые.
+        metadata: { tag: "", path: "", hidden },
       }]);
       setCardsHidden(hidden);
     } catch (reason) {
