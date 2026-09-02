@@ -1,28 +1,71 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useLayoutEffect, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router";
-import { Search, Mail, ChevronDown, Menu, X } from "lucide-react";
+import { Search, Mail, ChevronDown, ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
 import { NAV, type NavItem } from "../../data";
 import ipiiLogo from "../../../imports/ipii-logo.png";
 
-function DropdownMenu({ item }: { item: NavItem }) {
+const PANEL_WIDTH = 220;
+
+function DropdownMenu({ item, scrollRef }: { item: NavItem; scrollRef: RefObject<HTMLDivElement | null> }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const isActive = location.pathname.startsWith(item.path) && item.path !== "/";
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // Панель живёт в портале, поэтому проверяем оба поддерева.
+      if (triggerRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [open]);
+
+  // Строка навигации прокручивается по горизонтали, а overflow-x: auto не
+  // позволяет overflow-y остаться visible — вложенная панель была бы обрезана.
+  // Поэтому панель рендерится в портале с координатами от кнопки.
+  useLayoutEffect(() => {
+    if (!open) return;
+    function place() {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      setPosition({
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - PANEL_WIDTH - 8)),
+        top: rect.bottom,
+      });
+    }
+    place();
+    const scroller = scrollRef.current;
+    scroller?.addEventListener("scroll", place, { passive: true });
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, { passive: true });
+    return () => {
+      scroller?.removeEventListener("scroll", place);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place);
+    };
+  }, [open, scrollRef]);
+
   if (!item.children) {
     return (
       <Link
         to={item.path}
-        className={`flex items-center px-4 py-3 text-sm whitespace-nowrap transition-colors hover:bg-[#2a4d7e] ${
+        className={`flex shrink-0 items-center px-4 py-3 text-sm whitespace-nowrap transition-colors hover:bg-[#2a4d7e] ${
           isActive ? "border-b-2 border-white font-semibold" : ""
         }`}
       >
@@ -32,7 +75,7 @@ function DropdownMenu({ item }: { item: NavItem }) {
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={triggerRef} className="shrink-0">
       <button
         onClick={() => setOpen((v) => !v)}
         className={`flex items-center gap-1 px-4 py-3 text-sm whitespace-nowrap transition-colors hover:bg-[#2a4d7e] ${
@@ -44,8 +87,12 @@ function DropdownMenu({ item }: { item: NavItem }) {
         {item.label}
         <ChevronDown size={13} className={`transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
-      {open && (
-        <div className="absolute top-full left-0 z-50 min-w-[220px] bg-white border border-border shadow-lg rounded-b-sm py-1">
+      {open && position && createPortal(
+        <div
+          ref={panelRef}
+          className="fixed z-50 min-w-[220px] bg-white border border-border shadow-lg rounded-b-sm py-1"
+          style={{ left: position.left, top: position.top }}
+        >
           {item.children.map((child) => (
             <Link
               key={child.path}
@@ -56,7 +103,8 @@ function DropdownMenu({ item }: { item: NavItem }) {
               {child.label}
             </Link>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -123,6 +171,34 @@ export default function Header() {
     return () => window.removeEventListener("resize", measure);
   }, []);
 
+  // Прокрутка строки навигации: стрелки показываются только когда есть куда ехать.
+  const navScrollRef = useRef<HTMLDivElement>(null);
+  const [navOverflow, setNavOverflow] = useState({ left: false, right: false });
+
+  const measureNavOverflow = useCallback(() => {
+    const el = navScrollRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setNavOverflow({ left: el.scrollLeft > 1, right: el.scrollLeft < max - 1 });
+  }, []);
+
+  useEffect(() => {
+    measureNavOverflow();
+    const el = navScrollRef.current;
+    el?.addEventListener("scroll", measureNavOverflow, { passive: true });
+    window.addEventListener("resize", measureNavOverflow);
+    return () => {
+      el?.removeEventListener("scroll", measureNavOverflow);
+      window.removeEventListener("resize", measureNavOverflow);
+    };
+  }, [measureNavOverflow]);
+
+  function scrollNav(direction: -1 | 1) {
+    const el = navScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * Math.round(el.clientWidth * 0.6), behavior: "smooth" });
+  }
+
   // close mobile menu on route change
   const location = useLocation();
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
@@ -184,15 +260,47 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Nav bar — desktop */}
+        {/* Nav bar — desktop. Ряд прокручивается по горизонтали, поэтому не
+            расширяет страницу на промежуточных ширинах (768–829 px). */}
         <nav
-          className="bg-primary text-primary-foreground hidden md:block overflow-visible"
+          className="bg-primary text-primary-foreground hidden md:block"
           aria-label="Основная навигация"
         >
-          <div className="max-w-[1280px] mx-auto px-4 flex items-center">
-            {NAV.map((item) => (
-              <DropdownMenu key={item.path} item={item} />
-            ))}
+          <div className="max-w-[1280px] mx-auto px-4 relative">
+            <div
+              ref={navScrollRef}
+              className="flex items-center overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {NAV.map((item) => (
+                <DropdownMenu key={item.path} item={item} scrollRef={navScrollRef} />
+              ))}
+            </div>
+            {navOverflow.left && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => scrollNav(-1)}
+                  aria-label="Прокрутить меню влево"
+                  className="absolute inset-y-0 left-0 z-10 flex w-9 items-center justify-center bg-primary transition-colors hover:bg-[#2a4d7e]"
+                >
+                  <ChevronLeft size={17} aria-hidden="true" />
+                </button>
+                <div className="pointer-events-none absolute inset-y-0 left-9 w-6 bg-gradient-to-r from-primary to-transparent" />
+              </>
+            )}
+            {navOverflow.right && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => scrollNav(1)}
+                  aria-label="Прокрутить меню вправо"
+                  className="absolute inset-y-0 right-0 z-10 flex w-9 items-center justify-center bg-primary transition-colors hover:bg-[#2a4d7e]"
+                >
+                  <ChevronRight size={17} aria-hidden="true" />
+                </button>
+                <div className="pointer-events-none absolute inset-y-0 right-9 w-6 bg-gradient-to-l from-primary to-transparent" />
+              </>
+            )}
           </div>
         </nav>
       </header>
