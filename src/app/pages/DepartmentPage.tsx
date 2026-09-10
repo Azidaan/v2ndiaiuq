@@ -5,6 +5,7 @@ import SafeHtml from "../components/SafeHtml";
 import { DEPARTMENTS } from "../data";
 import { useManagedContent } from "../lib/content";
 import { toManagedDepartments, type ManagedDepartmentView } from "../features/science/managedScienceContent";
+import SafeImage from "../components/ui/SafeImage";
 
 function DepartmentCard({ dep }: { dep: ManagedDepartmentView }) {
   return (
@@ -13,7 +14,7 @@ function DepartmentCard({ dep }: { dep: ManagedDepartmentView }) {
       className="bg-card rounded border border-border hover:border-accent hover:shadow-sm group transition-all overflow-hidden flex flex-col"
     >
       <div className="h-40 bg-secondary overflow-hidden">
-        <img src={dep.image} alt={dep.name} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+        <SafeImage src={dep.image} alt={dep.name} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
       </div>
       <div className="p-4 flex flex-col flex-1">
         <span className="text-[10px] font-bold text-accent uppercase tracking-widest">{dep.shortName}</span>
@@ -55,7 +56,7 @@ function SingleDepartment({ id, departments }: { id: string; departments: Manage
               {dep.name}
             </h1>
             <div className="mb-6 rounded overflow-hidden bg-secondary h-[280px] max-w-lg">
-              <img src={dep.image} alt={dep.name} className="w-full h-full object-cover" />
+              <SafeImage src={dep.image} alt={dep.name} className="w-full h-full object-cover" />
             </div>
             <p className="text-sm text-foreground leading-relaxed mb-6">{dep.description}</p>
             {dep.extra?.map((paragraph) => (

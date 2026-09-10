@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import Breadcrumbs from "../components/layout/Breadcrumbs";
 import { NEWS, formatDate } from "../data";
 import { useManagedContent } from "../lib/content";
+import SafeImage from "../components/ui/SafeImage";
 
 /** Запасные значения на случай пустой базы: те же, что в визуальном редакторе. */
 const REQUISITES_FALLBACK = {
@@ -48,7 +49,7 @@ const SECTIONS: Record<string, SectionConfig> = {
   "/education": {
     title: "Образование",
     subtitle: "Подготовка высококвалифицированных исследователей в области ИИ. Аспирантура по направлению 1.2.1 «Искусственный интеллект и машинное обучение».",
-    image: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1200&h=400&fit=crop&auto=format",
+    image: "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=1200&h=400&fit=crop&auto=format",
     breadcrumb: "Образование",
     links: [
       { label: "Аспирантура", path: "/education", description: "Направления подготовки и сроки обучения" },
@@ -120,7 +121,7 @@ export default function SectionLandingPage() {
 
       {/* Hero banner */}
       <div className="relative h-52 sm:h-64 bg-primary overflow-hidden">
-        <img
+        <SafeImage
           src={config.image}
           alt={config.title}
           className="w-full h-full object-cover opacity-30"

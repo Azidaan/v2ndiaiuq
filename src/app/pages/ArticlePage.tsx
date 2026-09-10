@@ -5,6 +5,7 @@ import { NEWS, formatDate, CATEGORY_LABELS } from "../data";
 import { useManagedContent } from "../lib/content";
 import type { NewsCategory } from "../data";
 import SafeHtml from "../components/SafeHtml";
+import SafeImage from "../components/ui/SafeImage";
 
 export default function ArticlePage() {
   const { id } = useParams<{ id: string }>();
@@ -60,7 +61,7 @@ export default function ArticlePage() {
 
             {item.image && (
               <div className="mb-6 rounded overflow-hidden bg-secondary h-[320px]">
-                <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                <SafeImage src={item.image} alt={item.title} className="w-full h-full object-cover" />
               </div>
             )}
 

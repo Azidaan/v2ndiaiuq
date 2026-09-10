@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import Breadcrumbs from "../components/layout/Breadcrumbs";
+import SafeImage from "../components/ui/SafeImage";
 
 const GOALS = [
   "Концентрация творческих усилий и более полное использование научного и технического потенциала в сфере разработки интеллектуальных и робототехнических систем, компьютерных информационных технологий, создания систем искусственного интеллекта и дистантных форм обучения.",
@@ -33,7 +34,7 @@ export default function InstituteHistoryPage() {
       />
 
       <div className="relative h-56 sm:h-64 bg-primary overflow-hidden">
-        <img
+        <SafeImage
           src="https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1200&h=400&fit=crop&auto=format"
           alt="История и миссия института"
           className="w-full h-full object-cover opacity-30"

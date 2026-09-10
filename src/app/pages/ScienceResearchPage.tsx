@@ -12,6 +12,7 @@ import scienceSystemImage from "../../imports/research/image5.jpeg";
 import plateRecognitionImage from "../../imports/research/image6.jpeg";
 import manipulatorImage from "../../imports/research/image7.jpeg";
 import speakerIdImage from "../../imports/research/image8.png";
+import SafeImage from "../components/ui/SafeImage";
 
 export interface ResearchItem {
   id: string;
@@ -205,7 +206,7 @@ function ResearchCard({ item }: { item: ResearchItem }) {
     <Link to={`/science/research/${item.id}`} className="group bg-card border border-border rounded overflow-hidden hover:border-accent hover:shadow-sm transition-all">
       <div className="aspect-[16/9] bg-secondary overflow-hidden">
         {item.image ? (
-          <img src={item.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" aria-hidden="true" />
+          <SafeImage src={item.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" aria-hidden="true" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <Cpu size={34} className="text-primary opacity-50" aria-hidden="true" />
@@ -242,7 +243,7 @@ function ResearchDetail({ item, items }: { item: ResearchItem; items: ResearchIt
       <article className="flex-1 min-w-0 bg-card border border-border rounded overflow-hidden">
         {item.image && (
           <div className="h-64 md:h-80 bg-secondary overflow-hidden">
-            <img src={item.image} alt={item.navTitle} className="w-full h-full object-cover" />
+            <SafeImage src={item.image} alt={item.navTitle} className="w-full h-full object-cover" />
           </div>
         )}
         <div className="p-5 md:p-6">
