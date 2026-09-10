@@ -718,8 +718,9 @@ function Editor({
               // ошибками, а браузер знает точные значения при загрузке.
               if (current.type === "document" && first?.size) {
                 metadata.size = formatFileSize(first.size);
-                const extension = (first.name.split(".").pop() ?? "").toUpperCase();
-                if (extension && extension !== first.name.toUpperCase()) metadata.ext = extension;
+                const source = first.name || first.url;
+                const extension = (source.split(".").pop() ?? "").toUpperCase();
+                if (extension && extension !== source.toUpperCase()) metadata.ext = extension;
               }
               // Первое вложение дублируем в file_url: на нём держатся страницы
               // документов и свидетельств, которые про список ничего не знают.
@@ -864,6 +865,31 @@ function AttachmentsField({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Материалы, сохранённые до появления списка, знают только адрес файла.
+  // Размер спрашиваем у сервера, иначе поле «Размер файла» останется прежним.
+  const probedRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    const pending = items.filter((item) => item.url && item.size === undefined && !probedRef.current.has(item.url));
+    if (pending.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      const sizes = new Map<string, number>();
+      for (const item of pending) {
+        probedRef.current.add(item.url);
+        try {
+          const response = await fetch(item.url, { method: "HEAD" });
+          const length = Number(response.headers.get("content-length"));
+          if (response.ok && Number.isFinite(length) && length > 0) sizes.set(item.url, length);
+        } catch {
+          // Размер останется неизвестным: поле можно заполнить вручную.
+        }
+      }
+      if (cancelled || sizes.size === 0) return;
+      onChange(items.map((item) => (sizes.has(item.url) ? { ...item, size: sizes.get(item.url) } : item)));
+    })();
+    return () => { cancelled = true; };
+  }, [items, onChange]);
 
   async function addFiles(files: File[]) {
     if (files.length === 0) return;
