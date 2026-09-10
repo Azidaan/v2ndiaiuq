@@ -369,7 +369,15 @@ const dist = join(root, "dist");
 if (isProduction && existsSync(dist)) {
   await app.register(fastifyStatic, { root: dist, prefix: "/" });
   app.setNotFoundHandler((request, reply) => {
-    if (request.raw.url?.startsWith("/api/")) return reply.code(404).send({ error: "Маршрут не найден" });
+    const url = request.raw.url ?? "/";
+    if (url.startsWith("/api/")) return reply.code(404).send({ error: "Маршрут не найден" });
+    // Отдавать index.html вместо отсутствующего файла нельзя: браузер получит
+    // HTML вместо модуля и упадёт с невнятной ошибкой импорта вместо честного 404.
+    // Так бывает у вкладки, открытой до пересборки: имена бандлов меняются.
+    const path = url.split("?")[0];
+    const isAsset = path.startsWith("/assets/") || path.startsWith("/uploads/");
+    const looksLikeFile = /\.[a-z0-9]{2,5}$/i.test(path.split("/").pop() ?? "");
+    if (isAsset || looksLikeFile) return reply.code(404).send({ error: "Файл не найден" });
     return reply.type("text/html").send(createReadStream(join(dist, "index.html")));
   });
 }

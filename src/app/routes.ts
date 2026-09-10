@@ -2,9 +2,33 @@ import { createBrowserRouter } from "react-router";
 import { createElement, type ComponentType } from "react";
 import Root from "./components/layout/Root";
 
-const lazyPage = (loader: () => Promise<{ default: ComponentType }>) => async () => ({
-  Component: (await loader()).default,
-});
+function RouteFallback() {
+  return createElement("div", { className: "min-h-[40vh] flex items-center justify-center text-sm text-muted-foreground" }, "Загрузка...");
+}
+
+const RELOAD_FLAG = "chunk-reload";
+
+/**
+ * Загружает страницу по требованию. Если вкладка была открыта до пересборки,
+ * имена файлов уже другие и импорт падает — тогда перезагружаем страницу, чтобы
+ * подтянуть свежую разметку. Флаг в sessionStorage не даёт зациклиться, если
+ * файл недоступен по другой причине.
+ */
+const lazyPage = (loader: () => Promise<{ default: ComponentType }>) => async () => {
+  try {
+    const module = await loader();
+    sessionStorage.removeItem(RELOAD_FLAG);
+    return { Component: module.default };
+  } catch (reason) {
+    if (typeof window !== "undefined" && !sessionStorage.getItem(RELOAD_FLAG)) {
+      sessionStorage.setItem(RELOAD_FLAG, "1");
+      window.location.reload();
+      // Возвращаем пустышку: страница всё равно вот-вот перезагрузится.
+      return { Component: RouteFallback };
+    }
+    throw reason;
+  }
+};
 
 const homePage = lazyPage(() => import("./pages/HomePage"));
 const newsListPage = lazyPage(() => import("./pages/NewsListPage"));
@@ -24,9 +48,6 @@ const adminPage = lazyPage(() => import("./pages/AdminPage"));
 const searchPage = lazyPage(() => import("./pages/SearchPage"));
 const siteMapPage = lazyPage(() => import("./pages/SiteMapPage"));
 
-function RouteFallback() {
-  return createElement("div", { className: "min-h-[40vh] flex items-center justify-center text-sm text-muted-foreground" }, "Загрузка...");
-}
 
 export const router = createBrowserRouter([
   { path: "/admin", lazy: adminPage, HydrateFallback: RouteFallback },
