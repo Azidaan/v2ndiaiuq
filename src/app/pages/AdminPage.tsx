@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Bold,
+  Crop,
   FileUp,
   ImagePlus,
   Italic,
@@ -11,6 +12,7 @@ import {
   MessageSquare,
   Pencil,
   Plus,
+  RotateCcw,
   Save,
   Star,
   Strikethrough,
@@ -39,6 +41,7 @@ import {
   getSeedRows,
 } from "../features/admin/contentConfig";
 import ImageFocusPicker from "../components/ui/ImageFocusPicker";
+import InlineImageCropper from "../components/ui/InlineImageCropper";
 import { parseFocus } from "../components/ui/SafeImage";
 
 export default function AdminPage() {
@@ -1009,7 +1012,10 @@ function RichTextEditor({
   // Позиция курсора на момент нажатия кнопки: загрузка файла асинхронная,
   // и к её концу выделение в редакторе уже потеряно.
   const savedRangeRef = useRef<Range | null>(null);
-  const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
+  // Держим не сам узел, а его номер: onBlur пересобирает innerHTML, и прямая
+  // ссылка после этого указывает на отсоединённый элемент.
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [cropping, setCropping] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   function rememberSelection() {
@@ -1065,6 +1071,9 @@ function RichTextEditor({
       image.alt = "";
       // data-focus задаёт видимую часть, если картинка не влезает в кадр.
       image.setAttribute("data-focus", "50 50");
+      // Оригинал запоминаем сразу: обрезка подменяет src, и без этой ссылки
+      // повторная обрезка резала бы уже урезанную копию.
+      image.setAttribute("data-original", url);
 
       const range = insertionRange(editor);
       range.deleteContents();
@@ -1086,15 +1095,42 @@ function RichTextEditor({
     }
   }
 
+  /** Находит выбранную картинку в живом DOM по её номеру. */
+  function selectedNode(): HTMLImageElement | null {
+    const editor = editorRef.current;
+    if (!editor || selectedIndex === null) return null;
+    return editor.querySelectorAll("img")[selectedIndex] ?? null;
+  }
+
   function applyFocus(event: React.MouseEvent<HTMLDivElement>) {
-    if (!selectedImage) return;
+    const image = selectedNode();
+    if (!image) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const x = Math.round(Math.min(100, Math.max(0, ((event.clientX - rect.left) / rect.width) * 100)));
     const y = Math.round(Math.min(100, Math.max(0, ((event.clientY - rect.top) / rect.height) * 100)));
-    selectedImage.setAttribute("data-focus", `${x} ${y}`);
-    selectedImage.style.objectPosition = `${x}% ${y}%`;
-    setSelectedImage(selectedImage);
+    image.setAttribute("data-focus", `${x} ${y}`);
+    image.style.objectPosition = `${x}% ${y}%`;
+    setSelectedIndex(selectedIndex);
     emit();
+  }
+
+  /** Загружает обрезанную копию и подменяет адрес. Оригинал на диске остаётся. */
+  async function applyCrop(blob: Blob) {
+    const image = selectedNode();
+    if (!image) return;
+    setUploading(true);
+    try {
+      const file = new File([blob], `crop-${Date.now()}.jpg`, { type: "image/jpeg" });
+      const original = image.getAttribute("data-original") || image.getAttribute("src") || "";
+      image.src = await fileStorage.upload("inline", file);
+      if (original) image.setAttribute("data-original", original);
+      setCropping(false);
+      emit();
+    } catch (reason) {
+      alert(`Не удалось сохранить обрезку: ${reason instanceof Error ? reason.message : "неизвестная ошибка"}`);
+    } finally {
+      setUploading(false);
+    }
   }
 
   const controls = [
@@ -1106,6 +1142,7 @@ function RichTextEditor({
     { command: "insertOrderedList", label: "Нумерованный список", Icon: ListOrdered },
   ];
 
+  const selectedImage = selectedNode();
   const focusValue = selectedImage?.getAttribute("data-focus")?.split(/\s+/).map(Number) ?? [50, 50];
 
   return (
@@ -1158,8 +1195,22 @@ function RichTextEditor({
         />
       </div>
 
-      {selectedImage && (
-        <div className="flex flex-wrap items-start gap-3 border-b border-border bg-secondary/40 p-3">
+      {selectedImage && cropping && (
+        <InlineImageCropper
+          src={selectedImage.getAttribute("data-original") || selectedImage.src}
+          busy={uploading}
+          onCancel={() => setCropping(false)}
+          onApply={(blob) => void applyCrop(blob)}
+        />
+      )}
+
+      {selectedImage && !cropping && (
+        <div
+          // Без этого клик по панели уводит фокус, срабатывает onBlur и
+          // пересобирает содержимое — выбранная картинка становится чужим узлом.
+          onMouseDown={(event) => event.preventDefault()}
+          className="flex flex-wrap items-start gap-3 border-b border-border bg-secondary/40 p-3"
+        >
           <div
             onClick={applyFocus}
             role="application"
@@ -1178,17 +1229,40 @@ function RichTextEditor({
             <p className="mt-1 text-[11px] text-muted-foreground">
               Нажмите на важное место — оно останется видимым, если картинка не помещается целиком.
             </p>
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => { selectedImage.remove(); setSelectedImage(null); emit(); }}
+                onClick={() => setCropping(true)}
+                className="inline-flex items-center gap-1 rounded border border-accent px-2 py-1 text-[11px] text-accent hover:bg-accent hover:text-accent-foreground"
+              >
+                <Crop size={12} aria-hidden="true" /> Обрезать
+              </button>
+              {selectedImage.getAttribute("data-original") &&
+                selectedImage.getAttribute("data-original") !== selectedImage.getAttribute("src") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const image = selectedNode();
+                    const original = image?.getAttribute("data-original");
+                    if (!image || !original) return;
+                    image.src = original;
+                    emit();
+                  }}
+                  className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:border-accent"
+                >
+                  <RotateCcw size={12} aria-hidden="true" /> Вернуть оригинал
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => { selectedImage.remove(); setSelectedIndex(null); emit(); }}
                 className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-red-600 hover:border-red-400"
               >
                 <Trash2 size={12} aria-hidden="true" /> Удалить картинку
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedImage(null)}
+                onClick={() => setSelectedIndex(null)}
                 className="rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:border-accent"
               >
                 Готово
@@ -1212,7 +1286,13 @@ function RichTextEditor({
         onClick={(event) => {
           rememberSelection();
           const target = event.target as HTMLElement;
-          setSelectedImage(target instanceof HTMLImageElement ? target : null);
+          if (!(target instanceof HTMLImageElement) || !editorRef.current) {
+            setSelectedIndex(null);
+            setCropping(false);
+            return;
+          }
+          setSelectedIndex([...editorRef.current.querySelectorAll("img")].indexOf(target));
+          setCropping(false);
         }}
         onPaste={(event) => {
           rememberSelection();

@@ -5,7 +5,7 @@ const SANITIZE_OPTIONS = {
     "p", "div", "br", "strong", "b", "em", "i", "u", "s", "strike",
     "ul", "ol", "li", "a", "h2", "h3", "h4", "blockquote", "figure", "figcaption", "img",
   ],
-  ALLOWED_ATTR: ["href", "target", "rel", "src", "alt", "data-focus"],
+  ALLOWED_ATTR: ["href", "target", "rel", "src", "alt", "data-focus", "data-original"],
   ALLOW_DATA_ATTR: false,
 };
 
@@ -21,7 +21,11 @@ function installHook() {
   DOMPurify.addHook("afterSanitizeAttributes", (node) => {
     if (!(node instanceof Element) || node.tagName !== "IMG") return;
     const src = node.getAttribute("src") ?? "";
-    if (!src.startsWith(UPLOADS_PREFIX) || src.includes("..")) node.remove();
+    if (!src.startsWith(UPLOADS_PREFIX) || src.includes("..")) return node.remove();
+    const original = node.getAttribute("data-original");
+    if (original && (!original.startsWith(UPLOADS_PREFIX) || original.includes(".."))) {
+      node.removeAttribute("data-original");
+    }
   });
 }
 

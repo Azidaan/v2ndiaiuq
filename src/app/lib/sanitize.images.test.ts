@@ -29,3 +29,21 @@ describe("картинки в размеченном тексте", () => {
     expect(sanitizeHtml('<p>a</p><script>alert(1)</script>')).not.toContain("script");
   });
 });
+
+describe("ссылка на оригинал у обрезанной картинки", () => {
+  it("сохраняется, если указывает на загруженный файл", () => {
+    const result = sanitizeHtml('<img src="/uploads/inline/crop.jpg" alt="" data-original="/uploads/inline/full.jpg">');
+    expect(result).toContain('data-original="/uploads/inline/full.jpg"');
+  });
+
+  it("снимается, если ведёт на чужой домен", () => {
+    const result = sanitizeHtml('<img src="/uploads/inline/crop.jpg" alt="" data-original="https://example.com/a.jpg">');
+    expect(result).toContain('src="/uploads/inline/crop.jpg"');
+    expect(result).not.toContain("example.com");
+  });
+
+  it("снимается при выходе за пределы каталога", () => {
+    const result = sanitizeHtml('<img src="/uploads/inline/crop.jpg" alt="" data-original="/uploads/../etc/passwd">');
+    expect(result).not.toContain("passwd");
+  });
+});
