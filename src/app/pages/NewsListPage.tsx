@@ -5,6 +5,7 @@ import Breadcrumbs from "../components/layout/Breadcrumbs";
 import { NEWS, formatDate, CATEGORY_LABELS, type NewsCategory } from "../data";
 import { useManagedContent } from "../lib/content";
 import SafeHtml from "../components/SafeHtml";
+import DatePeriodPicker, { matchesPeriod, type DatePeriod } from "../components/ui/DatePeriodPicker";
 
 const ALL_CATEGORIES: { value: NewsCategory | "all"; label: string }[] = [
   { value: "all", label: "Все новости" },
@@ -14,14 +15,12 @@ const ALL_CATEGORIES: { value: NewsCategory | "all"; label: string }[] = [
   { value: "conference", label: "Конференции" },
 ];
 
-const YEARS = [2026, 2025, 2024, 2023, 2022];
-
 export default function NewsListPage() {
   const { items: managedNews, error } = useManagedContent("news");
   const [searchParams] = useSearchParams();
   const initCat = (searchParams.get("cat") as NewsCategory) || "all";
   const [category, setCategory] = useState<NewsCategory | "all">(initCat);
-  const [year, setYear] = useState<number | "all">("all");
+  const [period, setPeriod] = useState<DatePeriod>(null);
   const [query, setQuery] = useState("");
 
   const news = !error && managedNews.length > 0 ? managedNews.map((item) => ({
@@ -31,7 +30,7 @@ export default function NewsListPage() {
   })) : NEWS;
   const filtered = news.filter((n) => {
     if (category !== "all" && n.category !== category) return false;
-    if (year !== "all" && !n.date.startsWith(String(year))) return false;
+    if (!matchesPeriod(n.date, period)) return false;
     if (query && !n.title.toLowerCase().includes(query.toLowerCase())) return false;
     return true;
   });
@@ -77,16 +76,12 @@ export default function NewsListPage() {
             ))}
           </div>
 
-          {/* Year */}
-          <select
-            value={year}
-            onChange={(e) => setYear(e.target.value === "all" ? "all" : Number(e.target.value))}
-            className="text-sm border border-border rounded px-3 py-1.5 bg-card text-foreground outline-none hover:border-accent transition-colors focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="Фильтр по году"
-          >
-            <option value="all">Все годы</option>
-            {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
+          {/* Дата: год, месяц или конкретный день */}
+          <DatePeriodPicker
+            value={period}
+            onChange={setPeriod}
+            dates={news.map((n) => n.date)}
+          />
         </div>
 
         {filtered.length === 0 ? (
