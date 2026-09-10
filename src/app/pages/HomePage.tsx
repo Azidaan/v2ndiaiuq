@@ -124,7 +124,7 @@ function HeroSlideCard({ item, slides, activeIndex, exiting = false, wide = fals
         </div>
       </div>
       {item.image && (
-        <div className="aspect-[600/280] w-full shrink-0 self-start overflow-hidden bg-secondary sm:w-[600px] sm:max-w-[63%]">
+        <div className="aspect-[600/280] w-full shrink-0 self-stretch overflow-hidden bg-secondary sm:w-[600px] sm:max-w-[63%]">
           <SafeImage
             src={item.image}
             alt={item.title}
