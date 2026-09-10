@@ -6,7 +6,7 @@ import { NEWS, formatDate, CATEGORY_LABELS, type NewsCategory } from "../data";
 import { useManagedContent } from "../lib/content";
 import SafeHtml from "../components/SafeHtml";
 import DatePeriodPicker, { matchesPeriod, type DatePeriod } from "../components/ui/DatePeriodPicker";
-import SafeImage from "../components/ui/SafeImage";
+import SafeImage, { parseFocus, type ImageFocus } from "../components/ui/SafeImage";
 
 const ALL_CATEGORIES: { value: NewsCategory | "all"; label: string }[] = [
   { value: "all", label: "Все новости" },
@@ -28,7 +28,8 @@ export default function NewsListPage() {
     id: item.slug, title: item.title, date: item.published_at,
     category: (item.category || "institute") as NewsCategory,
     excerpt: item.summary, body: item.body, image: item.image_url || undefined,
-  })) : NEWS;
+    focus: parseFocus(item.metadata.focus),
+  })) : NEWS.map((item) => ({ ...item, focus: undefined as ImageFocus | undefined }));
   const filtered = news.filter((n) => {
     if (category !== "all" && n.category !== category) return false;
     if (!matchesPeriod(n.date, period)) return false;
@@ -97,7 +98,7 @@ export default function NewsListPage() {
               >
                 {item.image && (
                   <div className="h-44 bg-secondary overflow-hidden shrink-0">
-                    <SafeImage src={item.image} alt={item.title} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <SafeImage src={item.image} alt={item.title} focus={item.focus} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   </div>
                 )}
                 <div className="p-4 flex flex-col flex-1">

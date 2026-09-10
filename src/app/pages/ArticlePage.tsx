@@ -5,7 +5,7 @@ import { NEWS, formatDate, CATEGORY_LABELS } from "../data";
 import { useManagedContent } from "../lib/content";
 import type { NewsCategory } from "../data";
 import SafeHtml from "../components/SafeHtml";
-import SafeImage from "../components/ui/SafeImage";
+import SafeImage, { parseFocus, type ImageFocus } from "../components/ui/SafeImage";
 
 export default function ArticlePage() {
   const { id } = useParams<{ id: string }>();
@@ -15,7 +15,8 @@ export default function ArticlePage() {
     category: (entry.category || "institute") as NewsCategory,
     excerpt: entry.summary, body: entry.body, image: entry.image_url || undefined,
     tags: (entry.metadata.tags as string[] | undefined) ?? [],
-  })) : NEWS;
+    focus: parseFocus(entry.metadata.focus),
+  })) : NEWS.map((entry) => ({ ...entry, focus: undefined as ImageFocus | undefined }));
   const item = news.find((n) => n.id === id);
 
   if (loading && !item) return <div className="max-w-[1280px] mx-auto px-4 py-16 text-center text-muted-foreground">Загрузка...</div>;
@@ -61,7 +62,7 @@ export default function ArticlePage() {
 
             {item.image && (
               <div className="mb-6 rounded overflow-hidden bg-secondary h-[320px]">
-                <SafeImage src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                <SafeImage src={item.image} alt={item.title} focus={item.focus} className="w-full h-full object-cover" />
               </div>
             )}
 

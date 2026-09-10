@@ -37,6 +37,8 @@ import {
   SCIENCE_METADATA_FIELDS,
   getSeedRows,
 } from "../features/admin/contentConfig";
+import ImageFocusPicker from "../components/ui/ImageFocusPicker";
+import { parseFocus } from "../components/ui/SafeImage";
 
 export default function AdminPage() {
   const [session, setSession] = useState<AdminSession | null>(null);
@@ -708,6 +710,13 @@ function Editor({
           onFile={(f) => upload(f, "file_url")}
         />
       </div>
+      {form.image_url && (
+        <ImageFocusPicker
+          src={form.image_url}
+          focus={parseFocus(form.metadata.focus)}
+          onChange={(focus) => updateMetadata("focus", focus)}
+        />
+      )}
       {message && (
         <p className="text-sm text-muted-foreground mt-3">{message}</p>
       )}

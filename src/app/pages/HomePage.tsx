@@ -5,9 +5,9 @@ import { NEWS, formatDate, CATEGORY_LABELS, type NewsCategory } from "../data";
 import naukaRfLogo from "../../imports/nauka-rf-logo.png";
 import { useManagedContent } from "../lib/content";
 import SafeHtml from "../components/SafeHtml";
-import SafeImage from "../components/ui/SafeImage";
+import SafeImage, { parseFocus, type ImageFocus } from "../components/ui/SafeImage";
 
-type HomeNewsItem = (typeof NEWS)[number] & { featured?: boolean; featuredOrder?: number };
+type HomeNewsItem = (typeof NEWS)[number] & { featured?: boolean; featuredOrder?: number; focus?: ImageFocus };
 type HomeBlock = { title: string; summary: string; tag: string; path: string; image?: string; hidden?: boolean };
 
 const CATEGORY_COLORS: Record<NewsCategory, string> = {
@@ -125,7 +125,7 @@ function HeroSlideCard({ item, slides, activeIndex, exiting = false, wide = fals
       </div>
       {item.image && (
         <div className={`w-full h-[180px] sm:h-auto sm:w-[320px] ${wide ? "lg:w-[44%]" : ""} bg-secondary overflow-hidden shrink-0`}>
-          <SafeImage src={item.image} alt={item.title} loading="lazy" className="w-full h-full object-cover" />
+          <SafeImage src={item.image} alt={item.title} focus={item.focus} loading="lazy" className="w-full h-full object-cover" />
         </div>
       )}
     </div>
@@ -288,7 +288,7 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
           >
             <div className="w-16 h-12 shrink-0 bg-secondary rounded overflow-hidden">
               {item.image && (
-                <SafeImage src={item.image} alt="" loading="lazy" className="w-full h-full object-cover" aria-hidden="true" />
+                <SafeImage src={item.image} alt="" focus={item.focus} loading="lazy" className="w-full h-full object-cover" aria-hidden="true" />
               )}
             </div>
             <div>
@@ -330,6 +330,7 @@ export default function HomePage() {
     tags: (item.metadata.tags as string[] | undefined) ?? [],
     featured: Boolean(item.metadata.featured),
     featuredOrder: Number(item.metadata.featuredOrder) || 999,
+    focus: parseFocus(item.metadata.focus),
   })) : NEWS;
   return (
     <div style={{ fontFamily: "var(--font-body)" }}>
