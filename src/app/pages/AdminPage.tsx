@@ -24,6 +24,7 @@ import {
 import {
   EMPTY_CONTENT,
   slugify,
+  type ContentMetadata,
   type ContentType,
   type ManagedContent,
 } from "../lib/content";
@@ -675,7 +676,7 @@ function Editor({
             <input
               value={String(form.metadata.size ?? "")}
               onChange={(e) => updateMetadata("size", e.target.value)}
-              placeholder="Например: 2,4 МБ"
+              placeholder="Определится при загрузке файла"
               className="admin-input"
             />
           </Field>
@@ -710,10 +711,20 @@ function Editor({
         <AttachmentsField
           items={parseAttachments(form.metadata.attachments, form.file_url)}
           onChange={(items) => {
-            updateMetadata("attachments", items);
-            // Первое вложение дублируем в file_url: на нём держатся страницы
-            // документов и свидетельств, которые про список ничего не знают.
-            update("file_url", items[0]?.url ?? "");
+            const first = items[0];
+            setForm((current) => {
+              const metadata: ContentMetadata = { ...current.metadata, attachments: items };
+              // Размер и формат берём из самого файла: вручную их набирали с
+              // ошибками, а браузер знает точные значения при загрузке.
+              if (current.type === "document" && first?.size) {
+                metadata.size = formatFileSize(first.size);
+                const extension = (first.name.split(".").pop() ?? "").toUpperCase();
+                if (extension && extension !== first.name.toUpperCase()) metadata.ext = extension;
+              }
+              // Первое вложение дублируем в file_url: на нём держатся страницы
+              // документов и свидетельств, которые про список ничего не знают.
+              return { ...current, metadata, file_url: first?.url ?? "" };
+            });
           }}
         />
       </div>
@@ -812,14 +823,32 @@ function Field({
     </fieldset>
   );
 }
+/** Размер файла в привычном виде: 340 КБ, 1,4 МБ. */
+export function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "";
+  const units = ["Б", "КБ", "МБ", "ГБ"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  const rounded = unit === 0 ? Math.round(value) : Math.round(value * 10) / 10;
+  return `${String(rounded).replace(".", ",")} ${units[unit]}`;
+}
+
 /** Вложения материала. Хранятся в metadata.attachments, первое дублируется в file_url. */
-type Attachment = { url: string; name: string };
+type Attachment = { url: string; name: string; size?: number };
 
 function parseAttachments(raw: unknown, legacyUrl: string): Attachment[] {
   if (Array.isArray(raw)) {
     return raw
       .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object")
-      .map((entry) => ({ url: String(entry.url ?? ""), name: String(entry.name ?? "") }))
+      .map((entry) => ({
+        url: String(entry.url ?? ""),
+        name: String(entry.name ?? ""),
+        size: typeof entry.size === "number" ? entry.size : undefined,
+      }))
       .filter((entry) => entry.url);
   }
   // Материал сохранён до появления списка: показываем единственный старый файл.
@@ -844,7 +873,7 @@ function AttachmentsField({
     try {
       for (const file of files) {
         const url = await fileStorage.upload("attachments", file);
-        added.push({ url, name: file.name });
+        added.push({ url, name: file.name, size: file.size });
       }
       onChange([...items, ...added]);
     } catch (reason) {
@@ -872,6 +901,9 @@ function AttachmentsField({
                 >
                   {item.name || item.url}
                 </a>
+                {item.size ? (
+                  <span className="shrink-0 text-[10px] text-muted-foreground">{formatFileSize(item.size)}</span>
+                ) : null}
                 <button
                   type="button"
                   title="Убрать"
