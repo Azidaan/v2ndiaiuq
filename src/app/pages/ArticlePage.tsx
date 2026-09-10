@@ -6,6 +6,7 @@ import { useManagedContent } from "../lib/content";
 import type { NewsCategory } from "../data";
 import SafeHtml from "../components/SafeHtml";
 import SafeImage, { parseFocus, type ImageFocus } from "../components/ui/SafeImage";
+import { parseCrops, pickCrop, type CropUrls } from "../lib/imageCrops";
 
 export default function ArticlePage() {
   const { id } = useParams<{ id: string }>();
@@ -16,7 +17,8 @@ export default function ArticlePage() {
     excerpt: entry.summary, body: entry.body, image: entry.image_url || undefined,
     tags: (entry.metadata.tags as string[] | undefined) ?? [],
     focus: parseFocus(entry.metadata.focus),
-  })) : NEWS.map((entry) => ({ ...entry, focus: undefined as ImageFocus | undefined }));
+    crops: parseCrops(entry.metadata.crops),
+  })) : NEWS.map((entry) => ({ ...entry, focus: undefined as ImageFocus | undefined, crops: {} as CropUrls }));
   const item = news.find((n) => n.id === id);
 
   if (loading && !item) return <div className="max-w-[1280px] mx-auto px-4 py-16 text-center text-muted-foreground">Загрузка...</div>;
@@ -61,8 +63,8 @@ export default function ArticlePage() {
             </h1>
 
             {item.image && (
-              <div className="mb-6 rounded overflow-hidden bg-secondary h-[320px]">
-                <SafeImage src={item.image} alt={item.title} focus={item.focus} className="w-full h-full object-cover" />
+              <div className="mb-6 aspect-[940/480] w-full overflow-hidden rounded bg-secondary">
+                <SafeImage src={pickCrop(item.crops ?? {}, "article", item.image)} alt={item.title} focus={item.focus} className="h-full w-full object-cover" />
               </div>
             )}
 

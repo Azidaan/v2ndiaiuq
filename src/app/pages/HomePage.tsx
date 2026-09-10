@@ -6,8 +6,9 @@ import naukaRfLogo from "../../imports/nauka-rf-logo.png";
 import { useManagedContent } from "../lib/content";
 import SafeHtml from "../components/SafeHtml";
 import SafeImage, { parseFocus, type ImageFocus } from "../components/ui/SafeImage";
+import { parseCrops, pickCrop, type CropUrls } from "../lib/imageCrops";
 
-type HomeNewsItem = (typeof NEWS)[number] & { featured?: boolean; featuredOrder?: number; focus?: ImageFocus };
+type HomeNewsItem = (typeof NEWS)[number] & { featured?: boolean; featuredOrder?: number; focus?: ImageFocus; crops?: CropUrls };
 type HomeBlock = { title: string; summary: string; tag: string; path: string; image?: string; hidden?: boolean };
 
 const CATEGORY_COLORS: Record<NewsCategory, string> = {
@@ -124,8 +125,14 @@ function HeroSlideCard({ item, slides, activeIndex, exiting = false, wide = fals
         </div>
       </div>
       {item.image && (
-        <div className={`w-full h-[180px] sm:h-auto sm:w-[320px] ${wide ? "lg:w-[44%]" : ""} bg-secondary overflow-hidden shrink-0`}>
-          <SafeImage src={item.image} alt={item.title} focus={item.focus} loading="lazy" className="w-full h-full object-cover" />
+        <div className="aspect-[600/280] w-full shrink-0 self-start overflow-hidden bg-secondary sm:w-[600px] sm:max-w-[63%]">
+          <SafeImage
+            src={pickCrop(item.crops ?? {}, "hero", item.image)}
+            alt={item.title}
+            focus={item.focus}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
         </div>
       )}
     </div>
@@ -284,16 +291,23 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
           <Link
             key={`${active}-${item.id}`}
             to={`/news/${item.id}`}
-            className="flex gap-3 bg-card p-3 rounded border border-border hover:border-accent group transition-colors"
+            className="group flex flex-col overflow-hidden rounded border border-border bg-card transition-colors hover:border-accent"
           >
-            <div className="w-16 h-12 shrink-0 bg-secondary rounded overflow-hidden">
+            <div className="aspect-square w-full overflow-hidden bg-secondary">
               {item.image && (
-                <SafeImage src={item.image} alt="" focus={item.focus} loading="lazy" className="w-full h-full object-cover" aria-hidden="true" />
+                <SafeImage
+                  src={pickCrop(item.crops ?? {}, "tile", item.image)}
+                  alt=""
+                  focus={item.focus}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  aria-hidden="true"
+                />
               )}
             </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground mb-0.5">{formatDate(item.date)}</p>
-              <p className="text-[12px] text-foreground leading-snug group-hover:text-accent transition-colors line-clamp-2">
+            <div className="p-3">
+              <p className="mb-0.5 text-[10px] text-muted-foreground">{formatDate(item.date)}</p>
+              <p className="text-[12px] leading-snug text-foreground transition-colors group-hover:text-accent line-clamp-2">
                 {item.title}
               </p>
             </div>
@@ -331,6 +345,7 @@ export default function HomePage() {
     featured: Boolean(item.metadata.featured),
     featuredOrder: Number(item.metadata.featuredOrder) || 999,
     focus: parseFocus(item.metadata.focus),
+    crops: parseCrops(item.metadata.crops),
   })) : NEWS;
   return (
     <div style={{ fontFamily: "var(--font-body)" }}>
