@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Bold,
   FileUp,
+  ImagePlus,
   Italic,
   List,
   ListOrdered,
@@ -699,17 +700,20 @@ function Editor({
       </Field>
       <div className="grid md:grid-cols-2 gap-4">
         <UploadField
-          label="Изображение"
+          label="Изображение новости"
           value={form.image_url}
           accept="image/*"
           onUrl={(v) => update("image_url", v)}
           onFile={(f) => upload(f, "image_url")}
         />
-        <UploadField
-          label="Документ или вложение"
-          value={form.file_url}
-          onUrl={(v) => update("file_url", v)}
-          onFile={(f) => upload(f, "file_url")}
+        <AttachmentsField
+          items={parseAttachments(form.metadata.attachments, form.file_url)}
+          onChange={(items) => {
+            updateMetadata("attachments", items);
+            // Первое вложение дублируем в file_url: на нём держатся страницы
+            // документов и свидетельств, которые про список ничего не знают.
+            update("file_url", items[0]?.url ?? "");
+          }}
         />
       </div>
       {form.image_url && (
@@ -814,6 +818,102 @@ function Field({
     </fieldset>
   );
 }
+/** Вложения материала. Хранятся в metadata.attachments, первое дублируется в file_url. */
+type Attachment = { url: string; name: string };
+
+function parseAttachments(raw: unknown, legacyUrl: string): Attachment[] {
+  if (Array.isArray(raw)) {
+    return raw
+      .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object")
+      .map((entry) => ({ url: String(entry.url ?? ""), name: String(entry.name ?? "") }))
+      .filter((entry) => entry.url);
+  }
+  // Материал сохранён до появления списка: показываем единственный старый файл.
+  return legacyUrl ? [{ url: legacyUrl, name: legacyUrl.split("/").pop() ?? legacyUrl }] : [];
+}
+
+function AttachmentsField({
+  items,
+  onChange,
+}: {
+  items: Attachment[];
+  onChange: (items: Attachment[]) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function addFiles(files: File[]) {
+    if (files.length === 0) return;
+    setBusy(true);
+    setError("");
+    const added: Attachment[] = [];
+    try {
+      for (const file of files) {
+        const url = await fileStorage.upload("attachments", file);
+        added.push({ url, name: file.name });
+      }
+      onChange([...items, ...added]);
+    } catch (reason) {
+      if (added.length > 0) onChange([...items, ...added]);
+      setError(reason instanceof Error ? reason.message : "Не удалось загрузить часть файлов");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Field label="Документы и вложения">
+      <div className="rounded border border-border bg-card">
+        {items.length > 0 && (
+          <ul className="max-h-[168px] divide-y divide-border overflow-y-auto">
+            {items.map((item, index) => (
+              <li key={`${item.url}-${index}`} className="flex items-center gap-2 px-3 py-2">
+                <FileUp size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="min-w-0 flex-1 truncate text-xs text-foreground hover:text-accent"
+                  title={item.name || item.url}
+                >
+                  {item.name || item.url}
+                </a>
+                <button
+                  type="button"
+                  title="Убрать"
+                  onClick={() => onChange(items.filter((_, position) => position !== index))}
+                  className="shrink-0 rounded p-1 text-muted-foreground hover:text-red-600"
+                >
+                  <X size={13} aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <label className="flex cursor-pointer items-center justify-center gap-2 border-t border-border px-3 py-2.5 text-xs text-accent hover:bg-secondary first:border-t-0">
+          <Plus size={14} aria-hidden="true" />
+          {busy ? "Загружаем..." : items.length > 0 ? "Добавить ещё файлы" : "Выбрать файлы"}
+          <input
+            type="file"
+            multiple
+            className="sr-only"
+            disabled={busy}
+            onChange={(event) => {
+              const files = [...(event.target.files ?? [])];
+              event.target.value = "";
+              void addFiles(files);
+            }}
+          />
+        </label>
+      </div>
+      {items.length > 0 && (
+        <p className="mt-1 text-[11px] text-muted-foreground">Файлов: {items.length}</p>
+      )}
+      {error && <p className="mt-1 text-[11px] text-red-600">{error}</p>}
+    </Field>
+  );
+}
+
 function UploadField({
   label,
   value,
@@ -914,6 +1014,8 @@ function RichTextEditor({
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const editingRef = useRef(false);
+  const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (
@@ -925,10 +1027,42 @@ function RichTextEditor({
     }
   }, [value]);
 
+  function emit() {
+    onChange(sanitizeHtml(editorRef.current?.innerHTML ?? ""));
+  }
+
   function format(command: string) {
     editorRef.current?.focus();
     document.execCommand(command);
-    onChange(editorRef.current?.innerHTML ?? "");
+    emit();
+  }
+
+  /** Загружает файл и вставляет картинку в место курсора. */
+  async function insertImage(file: File) {
+    if (!file.type.startsWith("image/")) return;
+    setUploading(true);
+    try {
+      const url = await fileStorage.upload("inline", file);
+      editorRef.current?.focus();
+      // data-focus задаёт видимую часть, если картинка не влезает в кадр.
+      document.execCommand("insertHTML", false, `<img src="${url}" alt="" data-focus="50 50" />`);
+      emit();
+    } catch (reason) {
+      alert(`Не удалось загрузить картинку: ${reason instanceof Error ? reason.message : "неизвестная ошибка"}`);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function applyFocus(event: React.MouseEvent<HTMLDivElement>) {
+    if (!selectedImage) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = Math.round(Math.min(100, Math.max(0, ((event.clientX - rect.left) / rect.width) * 100)));
+    const y = Math.round(Math.min(100, Math.max(0, ((event.clientY - rect.top) / rect.height) * 100)));
+    selectedImage.setAttribute("data-focus", `${x} ${y}`);
+    selectedImage.style.objectPosition = `${x}% ${y}%`;
+    setSelectedImage(selectedImage);
+    emit();
   }
 
   const controls = [
@@ -936,17 +1070,11 @@ function RichTextEditor({
     { command: "italic", label: "Курсив", Icon: Italic },
     { command: "underline", label: "Подчеркнуть", Icon: Underline },
     { command: "strikeThrough", label: "Зачеркнуть", Icon: Strikethrough },
-    {
-      command: "insertUnorderedList",
-      label: "Маркированный список",
-      Icon: List,
-    },
-    {
-      command: "insertOrderedList",
-      label: "Нумерованный список",
-      Icon: ListOrdered,
-    },
+    { command: "insertUnorderedList", label: "Маркированный список", Icon: List },
+    { command: "insertOrderedList", label: "Нумерованный список", Icon: ListOrdered },
   ];
+
+  const focusValue = selectedImage?.getAttribute("data-focus")?.split(/\s+/).map(Number) ?? [50, 50];
 
   return (
     <div className="admin-editor">
@@ -969,7 +1097,66 @@ function RichTextEditor({
             <Icon size={16} />
           </button>
         ))}
+        <label
+          title={uploading ? "Загружаем..." : "Вставить изображение"}
+          aria-label="Вставить изображение"
+          className="cursor-pointer"
+        >
+          <ImagePlus size={16} />
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="sr-only"
+            onChange={async (event) => {
+              const files = [...(event.target.files ?? [])];
+              event.target.value = "";
+              for (const file of files) await insertImage(file);
+            }}
+          />
+        </label>
       </div>
+
+      {selectedImage && (
+        <div className="flex flex-wrap items-start gap-3 border-b border-border bg-secondary/40 p-3">
+          <div
+            onClick={applyFocus}
+            role="application"
+            aria-label={`Точка фокуса выбранной картинки: ${focusValue[0]}% на ${focusValue[1]}%`}
+            className="relative w-[150px] shrink-0 cursor-crosshair overflow-hidden rounded border border-border bg-card"
+          >
+            <img src={selectedImage.src} alt="" className="block max-h-[110px] w-full object-contain" />
+            <span
+              aria-hidden="true"
+              style={{ left: `${focusValue[0]}%`, top: `${focusValue[1]}%` }}
+              className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-accent/70 p-1.5 shadow-[0_0_0_1px_rgba(0,0,0,.45)]"
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-foreground">Картинка в тексте</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Нажмите на важное место — оно останется видимым, если картинка не помещается целиком.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => { selectedImage.remove(); setSelectedImage(null); emit(); }}
+                className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-red-600 hover:border-red-400"
+              >
+                <Trash2 size={12} aria-hidden="true" /> Удалить картинку
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedImage(null)}
+                className="rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:border-accent"
+              >
+                Готово
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         ref={editorRef}
         contentEditable
@@ -979,6 +1166,19 @@ function RichTextEditor({
         tabIndex={0}
         spellCheck
         onFocus={() => { editingRef.current = true; }}
+        onClick={(event) => {
+          const target = event.target as HTMLElement;
+          setSelectedImage(target instanceof HTMLImageElement ? target : null);
+        }}
+        onPaste={(event) => {
+          // Скриншот из буфера иначе попал бы в базу строкой base64 на мегабайты.
+          const file = [...event.clipboardData.items]
+            .find((entry) => entry.kind === "file" && entry.type.startsWith("image/"))
+            ?.getAsFile();
+          if (!file) return;
+          event.preventDefault();
+          void insertImage(file);
+        }}
         onBlur={(event) => {
           editingRef.current = false;
           const normalized = sanitizeHtml(event.currentTarget.innerHTML);

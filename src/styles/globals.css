@@ -104,6 +104,35 @@
     content: attr(data-placeholder);
     color: var(--muted-foreground);
   }
+
+  /* Картинки, вставленные в текст редактором. */
+  .admin-editor-content img,
+  .prose img {
+    display: block;
+    width: 100%;
+    max-width: 640px;
+    margin: 1rem 0;
+    border-radius: 0.25rem;
+    background: var(--secondary);
+  }
+
+  /* Точка фокуса задана — кадр фиксируется, чтобы высокий снимок не растягивал
+     текст на пол-экрана. Смещение проставляется из data-focus скриптом. */
+  .admin-editor-content img[data-focus],
+  .prose img[data-focus] {
+    aspect-ratio: 940 / 480;
+    object-fit: cover;
+    object-position: 50% 50%;
+  }
+
+  .admin-editor-content img {
+    cursor: pointer;
+    outline-offset: 2px;
+  }
+
+  .admin-editor-content img:hover {
+    outline: 2px solid var(--accent);
+  }
 }
 
 @keyframes hero-slide-enter {

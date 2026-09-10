@@ -15,7 +15,7 @@ export type CropFormat = {
 
 export const CROP_FORMATS: CropFormat[] = [
   { id: "hero", label: "Слайдер на главной", hint: "Широкий баннер рядом с текстом новости", width: 600, height: 280 },
-  { id: "tile", label: "Плитка новостей", hint: "Квадрат в ленте под слайдером", width: 300, height: 300 },
+  { id: "tile", label: "Плитка новостей", hint: "Небольшой квадрат в ленте под слайдером", width: 120, height: 120 },
   { id: "article", label: "Внутри новости", hint: "Крупная картинка над текстом материала", width: 940, height: 480 },
 ];
 

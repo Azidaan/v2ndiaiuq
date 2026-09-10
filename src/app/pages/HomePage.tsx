@@ -291,9 +291,9 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
           <Link
             key={`${active}-${item.id}`}
             to={`/news/${item.id}`}
-            className="group flex flex-col overflow-hidden rounded border border-border bg-card transition-colors hover:border-accent"
+            className="group flex gap-3 overflow-hidden rounded border border-border bg-card p-3 transition-colors hover:border-accent"
           >
-            <div className="aspect-square w-full overflow-hidden bg-secondary">
+            <div className="h-[120px] w-[120px] shrink-0 overflow-hidden rounded bg-secondary">
               {item.image && (
                 <SafeImage
                   src={pickCrop(item.crops ?? {}, "tile", item.image)}
@@ -305,9 +305,9 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
                 />
               )}
             </div>
-            <div className="p-3">
+            <div className="min-w-0">
               <p className="mb-0.5 text-[10px] text-muted-foreground">{formatDate(item.date)}</p>
-              <p className="text-[12px] leading-snug text-foreground transition-colors group-hover:text-accent line-clamp-2">
+              <p className="text-[12px] leading-snug text-foreground transition-colors group-hover:text-accent line-clamp-4">
                 {item.title}
               </p>
             </div>
