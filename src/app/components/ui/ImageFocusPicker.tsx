@@ -2,12 +2,16 @@ import { useRef, type KeyboardEvent, type MouseEvent } from "react";
 import { Crosshair, RotateCcw } from "lucide-react";
 import { DEFAULT_FOCUS, focusPosition, type ImageFocus } from "./SafeImage";
 
-/** Пропорции, в которых одна и та же картинка выводится на сайте. */
-const PREVIEWS: { label: string; className: string }[] = [
-  { label: "Слайдер", className: "h-20 w-36" },
-  { label: "Карточка", className: "h-20 w-28" },
-  { label: "Материал", className: "h-20 w-44" },
-  { label: "Миниатюра", className: "h-12 w-16" },
+/**
+ * Реальные пропорции слотов сайта. Высота у всех одинаковая, ширина считается
+ * из пропорции — так видно, какая часть кадра уцелеет в каждом месте.
+ */
+const PREVIEW_HEIGHT = 70;
+const PREVIEWS: { label: string; width: number; height: number }[] = [
+  { label: "Слайдер 600×280", width: 600, height: 280 },
+  { label: "В новости 940×480", width: 940, height: 480 },
+  { label: "Карточка новости", width: 400, height: 176 },
+  { label: "Плитка 120×120", width: 120, height: 120 },
 ];
 
 const STEP = 0.02;
@@ -95,7 +99,13 @@ export default function ImageFocusPicker({
           <div className="flex flex-wrap gap-3">
             {PREVIEWS.map((preview) => (
               <span key={preview.label} className="text-center">
-                <span className={`block overflow-hidden rounded border border-border bg-card ${preview.className}`}>
+                <span
+                  style={{
+                    height: PREVIEW_HEIGHT,
+                    width: Math.round((PREVIEW_HEIGHT * preview.width) / preview.height),
+                  }}
+                  className="block overflow-hidden rounded border border-border bg-card"
+                >
                   <img
                     src={src}
                     alt=""

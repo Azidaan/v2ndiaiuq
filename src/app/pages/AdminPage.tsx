@@ -39,9 +39,7 @@ import {
   getSeedRows,
 } from "../features/admin/contentConfig";
 import ImageFocusPicker from "../components/ui/ImageFocusPicker";
-import ImageCropStudio from "../components/ui/ImageCropStudio";
 import { parseFocus } from "../components/ui/SafeImage";
-import { parseCrops } from "../lib/imageCrops";
 
 export default function AdminPage() {
   const [session, setSession] = useState<AdminSession | null>(null);
@@ -717,18 +715,11 @@ function Editor({
         />
       </div>
       {form.image_url && (
-        <>
-          <ImageCropStudio
-            src={form.image_url}
-            crops={parseCrops(form.metadata.crops)}
-            onChange={(crops) => updateMetadata("crops", crops)}
-          />
-          <ImageFocusPicker
-            src={form.image_url}
-            focus={parseFocus(form.metadata.focus)}
-            onChange={(focus) => updateMetadata("focus", focus)}
-          />
-        </>
+        <ImageFocusPicker
+          src={form.image_url}
+          focus={parseFocus(form.metadata.focus)}
+          onChange={(focus) => updateMetadata("focus", focus)}
+        />
       )}
       {message && (
         <p className="text-sm text-muted-foreground mt-3">{message}</p>

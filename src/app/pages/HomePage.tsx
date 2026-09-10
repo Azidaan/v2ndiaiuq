@@ -6,9 +6,8 @@ import naukaRfLogo from "../../imports/nauka-rf-logo.png";
 import { useManagedContent } from "../lib/content";
 import SafeHtml from "../components/SafeHtml";
 import SafeImage, { parseFocus, type ImageFocus } from "../components/ui/SafeImage";
-import { parseCrops, pickCrop, type CropUrls } from "../lib/imageCrops";
 
-type HomeNewsItem = (typeof NEWS)[number] & { featured?: boolean; featuredOrder?: number; focus?: ImageFocus; crops?: CropUrls };
+type HomeNewsItem = (typeof NEWS)[number] & { featured?: boolean; featuredOrder?: number; focus?: ImageFocus };
 type HomeBlock = { title: string; summary: string; tag: string; path: string; image?: string; hidden?: boolean };
 
 const CATEGORY_COLORS: Record<NewsCategory, string> = {
@@ -127,7 +126,7 @@ function HeroSlideCard({ item, slides, activeIndex, exiting = false, wide = fals
       {item.image && (
         <div className="aspect-[600/280] w-full shrink-0 self-start overflow-hidden bg-secondary sm:w-[600px] sm:max-w-[63%]">
           <SafeImage
-            src={pickCrop(item.crops ?? {}, "hero", item.image)}
+            src={item.image}
             alt={item.title}
             focus={item.focus}
             loading="lazy"
@@ -296,7 +295,7 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
             <div className="h-[120px] w-[120px] shrink-0 overflow-hidden rounded bg-secondary">
               {item.image && (
                 <SafeImage
-                  src={pickCrop(item.crops ?? {}, "tile", item.image)}
+                  src={item.image}
                   alt=""
                   focus={item.focus}
                   loading="lazy"
@@ -345,7 +344,6 @@ export default function HomePage() {
     featured: Boolean(item.metadata.featured),
     featuredOrder: Number(item.metadata.featuredOrder) || 999,
     focus: parseFocus(item.metadata.focus),
-    crops: parseCrops(item.metadata.crops),
   })) : NEWS;
   return (
     <div style={{ fontFamily: "var(--font-body)" }}>
