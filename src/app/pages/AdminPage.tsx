@@ -321,7 +321,10 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
           ) : section === "users" && canManageUsers ? (
             <AdminUsersPanel currentUserId={user.id} />
           ) : section === "visual" && canWrite ? (
-            <AdminVisualEditor onManageNews={() => { setSection("content"); setType("news"); setEditing(null); }} />
+            <AdminVisualEditor
+              onManageNews={() => { setSection("content"); setType("news"); setEditing(null); }}
+              onManageDocuments={() => { setSection("content"); setType("document"); setEditing(null); }}
+            />
           ) : editing ? (
             <Editor
               initial={editing}

@@ -1,8 +1,17 @@
 import { Link, useLocation } from "react-router";
-import { ChevronRight, FlaskConical, GraduationCap, FileText, BookOpen } from "lucide-react";
+import { Building2, ChevronRight, Download, FlaskConical, GraduationCap, FileText, BookOpen } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Breadcrumbs from "../components/layout/Breadcrumbs";
 import { NEWS, formatDate } from "../data";
+import { useManagedContent } from "../lib/content";
+
+/** Запасные значения на случай пустой базы: те же, что в визуальном редакторе. */
+const REQUISITES_FALLBACK = {
+  fullName:
+    "Федеральное государственное бюджетное научное учреждение «Институт проблем искусственного интеллекта»",
+  shortName: "ФГБНУ «ИПИИ»",
+  address: "283048, ДНР, г. Донецк, ул. Артема, д. 118б",
+};
 
 interface SectionConfig {
   title: string;
@@ -130,6 +139,7 @@ export default function SectionLandingPage() {
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Section nav cards */}
           <div className="flex-1 min-w-0">
+            {basePath === "/institute" && <InstituteDetails />}
             <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">В этом разделе</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {config.links.map((link) => (
@@ -179,5 +189,104 @@ export default function SectionLandingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Сведения об организации и учредительные документы на странице «Институт».
+ * Реквизиты редактируются в визуальном редакторе CMS (block:institute:requisites),
+ * документы — в разделе «Документы» с категорией «Учредительные».
+ * Компонент монтируется только на /institute, поэтому запросы не идут с других разделов.
+ */
+function InstituteDetails() {
+  const { items: blocks, error: blocksError } = useManagedContent("visual_block");
+  const { items: documents, error: documentsError } = useManagedContent("document");
+
+  const stored = blocksError
+    ? undefined
+    : blocks.find((item) => item.slug === "block:institute:requisites")?.metadata;
+  const text = (key: keyof typeof REQUISITES_FALLBACK) => {
+    const value = stored?.[key];
+    return typeof value === "string" && value.trim() ? value : REQUISITES_FALLBACK[key];
+  };
+
+  const charter = documentsError
+    ? []
+    : documents
+        .filter((item) => item.category === "charter")
+        .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+
+  return (
+    <section className="mb-8">
+      <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">
+        Сведения об организации
+      </h2>
+      <dl className="rounded border border-border bg-card divide-y divide-border">
+        {[
+          { term: "Полное наименование", value: text("fullName") },
+          { term: "Сокращённое наименование", value: text("shortName") },
+          { term: "Адрес", value: text("address") },
+        ].map((row) => (
+          <div key={row.term} className="flex flex-col gap-1 p-4 sm:flex-row sm:gap-4">
+            <dt className="shrink-0 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground sm:w-56">
+              {row.term}
+            </dt>
+            <dd className="text-sm leading-relaxed text-foreground">{row.value}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <h2 className="mt-8 mb-4 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+        Учредительные документы
+      </h2>
+      {charter.length === 0 ? (
+        <p className="rounded border border-dashed border-border bg-card p-5 text-sm text-muted-foreground">
+          Учредительные документы пока не добавлены.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {charter.map((item) => {
+            const extension = (item.file_url.split(".").pop() ?? "").toUpperCase();
+            const content = (
+              <>
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded bg-secondary">
+                  <Building2 size={16} className="text-primary" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-foreground group-hover:text-accent">
+                    {item.title}
+                  </span>
+                  {item.summary && (
+                    <span className="mt-1 block text-[13px] leading-relaxed text-muted-foreground">
+                      {item.summary}
+                    </span>
+                  )}
+                  <span className="mt-1 block text-[11px] text-muted-foreground">
+                    {formatDate(item.published_at)}
+                    {extension && ` · ${extension}`}
+                  </span>
+                </span>
+                {item.file_url && (
+                  <Download size={15} className="mt-1 shrink-0 text-muted-foreground group-hover:text-accent" aria-hidden="true" />
+                )}
+              </>
+            );
+            const className =
+              "group flex gap-3 rounded border border-border bg-card p-4 transition-all hover:border-accent hover:shadow-sm";
+            return (
+              <li key={item.id}>
+                {item.file_url ? (
+                  <a href={item.file_url} target="_blank" rel="noreferrer" className={className}>
+                    {content}
+                  </a>
+                ) : (
+                  <div className={className}>{content}</div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

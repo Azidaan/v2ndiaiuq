@@ -31,6 +31,9 @@ type EditableBlock = {
   tableTitle?: string;
   tableRows?: TuitionRow[];
   tuitionTables?: TuitionTable[];
+  fullName?: string;
+  shortName?: string;
+  address?: string;
 };
 
 type TuitionRow = {
@@ -105,6 +108,21 @@ const DEFAULT_BLOCKS: EditableBlock[] = [
     path: "",
     image_url: "",
     file_url: "",
+  },
+  {
+    slug: "block:institute:requisites",
+    label: "Реквизиты института",
+    tag: "ОБ ИНСТИТУТЕ",
+    title: "Сведения об организации",
+    summary: "",
+    body: "",
+    path: "/institute",
+    image_url: "",
+    file_url: "",
+    fullName:
+      "Федеральное государственное бюджетное научное учреждение «Институт проблем искусственного интеллекта»",
+    shortName: "ФГБНУ «ИПИИ»",
+    address: "283048, ДНР, г. Донецк, ул. Артема, д. 118б",
   },
   {
     slug: "block:education:aspirantura",
@@ -233,22 +251,27 @@ const DEFAULT_BLOCKS: EditableBlock[] = [
  */
 const HERO_CARDS_SLUG = "block:home:cards";
 
+const REQUISITES_SLUG = "block:institute:requisites";
+
 const BLOCK_SLUGS = {
   homeCards: ["block:home:program", "block:home:journal", "block:home:congratulations"],
   scienceLeft: "block:home:science-left",
   scienceRight: "block:home:science-right",
   aspirantura: "block:education:aspirantura",
   fees: "block:education:fees",
+  requisites: REQUISITES_SLUG,
 } as const;
 
 export default function AdminVisualEditor({
   onManageNews,
+  onManageDocuments,
 }: {
   onManageNews: () => void;
+  onManageDocuments: () => void;
 }) {
   const [blocks, setBlocks] = useState<EditableBlock[]>(DEFAULT_BLOCKS);
   const [editing, setEditing] = useState<EditableBlock | null>(null);
-  const [page, setPage] = useState<"home" | "education">("home");
+  const [page, setPage] = useState<"home" | "institute" | "education">("home");
   const [cardsHidden, setCardsHidden] = useState(false);
   const [savingVisibility, setSavingVisibility] = useState(false);
 
@@ -282,6 +305,9 @@ export default function AdminVisualEditor({
               tuitionTables:
                 (record.metadata.tuitionTables as TuitionTable[] | undefined) ??
                 fallback.tuitionTables,
+              fullName: String(record.metadata.fullName ?? fallback.fullName ?? ""),
+              shortName: String(record.metadata.shortName ?? fallback.shortName ?? ""),
+              address: String(record.metadata.address ?? fallback.address ?? ""),
             }
           : fallback;
       }),
@@ -313,6 +339,9 @@ export default function AdminVisualEditor({
           tableTitle: editing.tableTitle,
           tableRows: editing.tableRows,
           tuitionTables: editing.tuitionTables,
+          fullName: editing.fullName,
+          shortName: editing.shortName,
+          address: editing.address,
         },
       }]);
     } catch (reason) {
@@ -357,6 +386,7 @@ export default function AdminVisualEditor({
   const scienceRight = getBlock(BLOCK_SLUGS.scienceRight);
   const aspirantura = getBlock(BLOCK_SLUGS.aspirantura);
   const fees = getBlock(BLOCK_SLUGS.fees);
+  const requisites = getBlock(BLOCK_SLUGS.requisites);
 
   async function uploadDocument(file: File) {
     if (!editing) return;
@@ -382,6 +412,12 @@ export default function AdminVisualEditor({
             className={`px-4 py-2 rounded text-sm ${page === "home" ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`}
           >
             Главная
+          </button>
+          <button
+            onClick={() => setPage("institute")}
+            className={`px-4 py-2 rounded text-sm ${page === "institute" ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`}
+          >
+            Институт
           </button>
           <button
             onClick={() => setPage("education")}
@@ -504,6 +540,45 @@ export default function AdminVisualEditor({
                 </div>
               </div>
             </div>
+          ) : page === "institute" ? (
+            <div className="p-4 bg-slate-50">
+              <button
+                onClick={() => setEditing(requisites)}
+                className="group relative w-full border-2 border-dashed border-accent/60 bg-white p-5 text-left transition-colors hover:border-accent hover:bg-blue-50/30"
+              >
+                <EditBadge />
+                <b className="text-xs text-accent">{requisites.tag}</b>
+                <h3 className="mt-3 font-bold text-primary">{requisites.fullName}</h3>
+                <dl className="mt-3 space-y-1 text-xs text-muted-foreground">
+                  <div className="flex gap-2">
+                    <dt className="w-32 shrink-0 font-medium">Сокращённое</dt>
+                    <dd>{requisites.shortName}</dd>
+                  </div>
+                  <div className="flex gap-2">
+                    <dt className="w-32 shrink-0 font-medium">Адрес</dt>
+                    <dd>{requisites.address}</dd>
+                  </div>
+                </dl>
+              </button>
+              <button
+                onClick={onManageDocuments}
+                className="group relative mt-3 w-full border-2 border-dashed border-accent/60 bg-white p-5 text-left transition-colors hover:border-accent hover:bg-blue-50/30"
+              >
+                <EditBadge />
+                <b className="text-[10px] font-bold text-green-700">УЧРЕДИТЕЛЬНЫЕ ДОКУМЕНТЫ</b>
+                <div className="mt-3 space-y-2">
+                  {[0, 1].map((index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="h-6 w-6 shrink-0 rounded bg-slate-100" />
+                      <span className="h-2 w-2/5 rounded bg-slate-300" />
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-4 text-xs text-muted-foreground">
+                  Нажмите, чтобы добавить или изменить документы. В разделе «Документы» выберите категорию «Учредительные».
+                </p>
+              </button>
+            </div>
           ) : (
             <div className="p-4 bg-slate-50">
               <div className="grid lg:grid-cols-[230px_1fr] gap-3">
@@ -587,7 +662,40 @@ export default function AdminVisualEditor({
                 <X size={18} />
               </button>
             </div>
-            {editing.slug === "block:education:fees" ? (
+            {editing.slug === REQUISITES_SLUG ? (
+              <>
+                <BlockField label="Полное наименование">
+                  <textarea
+                    rows={3}
+                    value={editing.fullName ?? ""}
+                    onChange={(e) => setEditing({ ...editing, fullName: e.target.value })}
+                    className="admin-input"
+                  />
+                </BlockField>
+                <BlockField label="Сокращённое наименование">
+                  <input
+                    value={editing.shortName ?? ""}
+                    onChange={(e) => setEditing({ ...editing, shortName: e.target.value })}
+                    className="admin-input"
+                  />
+                </BlockField>
+                <BlockField label="Адрес">
+                  <textarea
+                    rows={2}
+                    value={editing.address ?? ""}
+                    onChange={(e) => setEditing({ ...editing, address: e.target.value })}
+                    className="admin-input"
+                  />
+                </BlockField>
+                <BlockField label="Надпись над заголовком">
+                  <input
+                    value={editing.tag}
+                    onChange={(e) => setEditing({ ...editing, tag: e.target.value })}
+                    className="admin-input"
+                  />
+                </BlockField>
+              </>
+            ) : editing.slug === "block:education:fees" ? (
               <TuitionTableEditor block={editing} onChange={setEditing} />
             ) : (
               <>
