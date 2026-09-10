@@ -1005,8 +1005,31 @@ function RichTextEditor({
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const editingRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Позиция курсора на момент нажатия кнопки: загрузка файла асинхронная,
+  // и к её концу выделение в редакторе уже потеряно.
+  const savedRangeRef = useRef<Range | null>(null);
   const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  function rememberSelection() {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) return;
+    savedRangeRef.current = range.cloneRange();
+  }
+
+  /** Возвращает диапазон вставки: сохранённый курсор либо конец текста. */
+  function insertionRange(editor: HTMLDivElement) {
+    const saved = savedRangeRef.current;
+    if (saved && editor.contains(saved.commonAncestorContainer)) return saved;
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    return range;
+  }
 
   useEffect(() => {
     if (
@@ -1034,9 +1057,27 @@ function RichTextEditor({
     setUploading(true);
     try {
       const url = await fileStorage.upload("inline", file);
-      editorRef.current?.focus();
+      const editor = editorRef.current;
+      if (!editor) return;
+      editor.focus();
+      const image = document.createElement("img");
+      image.src = url;
+      image.alt = "";
       // data-focus задаёт видимую часть, если картинка не влезает в кадр.
-      document.execCommand("insertHTML", false, `<img src="${url}" alt="" data-focus="50 50" />`);
+      image.setAttribute("data-focus", "50 50");
+
+      const range = insertionRange(editor);
+      range.deleteContents();
+      range.insertNode(image);
+
+      // Курсор ставим за картинкой, чтобы можно было продолжать печатать.
+      const after = document.createRange();
+      after.setStartAfter(image);
+      after.collapse(true);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(after);
+      savedRangeRef.current = after.cloneRange();
       emit();
     } catch (reason) {
       alert(`Не удалось загрузить картинку: ${reason instanceof Error ? reason.message : "неизвестная ошибка"}`);
@@ -1088,24 +1129,33 @@ function RichTextEditor({
             <Icon size={16} />
           </button>
         ))}
-        <label
+        <button
+          type="button"
           title={uploading ? "Загружаем..." : "Вставить изображение"}
           aria-label="Вставить изображение"
-          className="cursor-pointer"
+          disabled={uploading}
+          // preventDefault не даёт редактору потерять фокус, поэтому курсор
+          // остаётся там, куда пользователь его поставил.
+          onMouseDown={(event) => {
+            event.preventDefault();
+            rememberSelection();
+          }}
+          onClick={() => fileInputRef.current?.click()}
         >
           <ImagePlus size={16} />
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            className="sr-only"
-            onChange={async (event) => {
-              const files = [...(event.target.files ?? [])];
-              event.target.value = "";
-              for (const file of files) await insertImage(file);
-            }}
-          />
-        </label>
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="sr-only"
+          onChange={async (event) => {
+            const files = [...(event.target.files ?? [])];
+            event.target.value = "";
+            for (const file of files) await insertImage(file);
+          }}
+        />
       </div>
 
       {selectedImage && (
@@ -1157,11 +1207,15 @@ function RichTextEditor({
         tabIndex={0}
         spellCheck
         onFocus={() => { editingRef.current = true; }}
+        onKeyUp={rememberSelection}
+        onMouseUp={rememberSelection}
         onClick={(event) => {
+          rememberSelection();
           const target = event.target as HTMLElement;
           setSelectedImage(target instanceof HTMLImageElement ? target : null);
         }}
         onPaste={(event) => {
+          rememberSelection();
           // Скриншот из буфера иначе попал бы в базу строкой base64 на мегабайты.
           const file = [...event.clipboardData.items]
             .find((entry) => entry.kind === "file" && entry.type.startsWith("image/"))
