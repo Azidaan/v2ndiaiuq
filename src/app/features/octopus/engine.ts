@@ -1,4 +1,8 @@
 import { BODY_CENTER, FRAMES, UNFOLD_STEPS, buildSprites, type SpriteSet } from "./sprite";
+import { createJarScene } from "./jar";
+
+/** Событие на window, по которому запускается сценка с банкой. */
+export const JAR_EVENT = "octopus:jar";
 
 /**
  * Осьминоги-питомцы поверх страницы. Один прозрачный canvas на весь экран,
@@ -20,6 +24,7 @@ const BUSY_SELECTOR = [
   "main :is(h1,h2,h3,h4,h5,p,li,dt,dd,a,button,img,video,iframe,input,textarea,select,label,table,blockquote,figure,form,pre)",
   "main [role=img]",
   "[data-octopus-toggle]",
+  "[data-octopus-jar]",
   "[role=dialog]",
 ].join(",");
 
@@ -84,7 +89,8 @@ type Particle = {
   x: number; y: number; vx: number; vy: number;
   age: number; life: number; seed: number; size: number;
 };
-type Pet = {
+export type NewParticle = Omit<Particle, "age" | "seed">;
+export type Pet = {
   x: number; y: number; vx: number; vy: number;
   ax: number; ay: number;
   cap: number; drag: number;
@@ -93,7 +99,7 @@ type Pet = {
   scaredUntil: number;
   phase: number;
   alpha: number;
-  mode: "free" | "held" | "flying";
+  mode: "free" | "held" | "flying" | "scripted";   // scripted — ведёт сценка с банкой
   angle: number;                 // поворот спрайта в полёте и в руке
   gaze: number;
   inkCooldown: number;
@@ -189,14 +195,15 @@ export function startOctopusPets(): () => void {
     return pet ? { x: pet.x, y: pet.y } : { x: rand(0, vw - 100), y: rand(100, vh - 100) };
   };
 
+  const makePet = (x: number, y: number): Pet => ({
+    x, y, vx: 0, vy: 0, ax: 0, ay: 0, cap: WANDER_CAP, drag: DRAG_CALM,
+    tx: x, ty: y, idle: rand(0.5, 2.5), scaredUntil: 0, phase: rand(0, FRAMES),
+    alpha: 0, mode: "free", angle: 0, gaze: 3, inkCooldown: 0, dizzyUntil: 0, fold: 0, play: null,
+  });
   measure();
   for (let i = 0; i < count; i++) {
     const spot = chooseSpot(null);
-    pets.push({
-      x: spot.x, y: spot.y, vx: 0, vy: 0, ax: 0, ay: 0, cap: WANDER_CAP, drag: DRAG_CALM,
-      tx: spot.x, ty: spot.y, idle: rand(0.5, 2.5), scaredUntil: 0, phase: rand(0, FRAMES),
-      alpha: 0, mode: "free", angle: 0, gaze: 3, inkCooldown: 0, dizzyUntil: 0, fold: 0, play: null,
-    });
+    pets.push(makePet(spot.x, spot.y));
   }
 
   // ---- частицы: пузырьки, искры кометы, чернила ----
@@ -314,7 +321,7 @@ export function startOctopusPets(): () => void {
   const hitPet = (x: number, y: number) => {
     for (let i = pets.length - 1; i >= 0; i--) {
       const pet = pets[i];
-      if (pet.alpha < 0.5) continue;
+      if (pet.alpha < 0.5 || pet.mode === "scripted") continue;
       const b = boxAt(pet.x, pet.y);
       if (x >= b.x - 4 && x <= b.x + b.w + 4 && y >= b.y - 4 && y <= b.y + b.h + 4) return pet;
     }
@@ -564,6 +571,30 @@ export function startOctopusPets(): () => void {
     runner.play = { role: "chase", partner: chaser, until, readyAt: now + TAG_HEAD_START * 1000 };
   };
 
+  // ---- сценка с банкой ----
+  const jar = createJarScene({
+    ctx, pets, sprites: sp, view: () => ({ w: vw, h: vh }), centerOf,
+    drawAt: (pet, image) => drawAt(pet, image, 0),
+    foldImage, addParticle, emitTrail,
+    take: (pet) => { endGame(pet); pet.mode = "scripted"; pet.ax = pet.ay = 0; },
+    release: (pet) => {
+      pet.mode = "free";
+      pet.ax = pet.ay = 0;
+      pet.cap = Math.max(WANDER_CAP, Math.hypot(pet.vx, pet.vy));
+      pet.tx = pet.x; pet.ty = pet.y; pet.idle = rand(1, 2);
+    },
+    spawn: (x, y) => {
+      const pet = makePet(0, 0);
+      pet.x = x - BODY_CENTER.x * sp().cell; pet.y = y - BODY_CENTER.y * sp().cell;
+      pet.alpha = 1; pet.mode = "scripted";
+      pets.push(pet);
+      return pet;
+    },
+    remove: (pet) => { const i = pets.indexOf(pet); if (i >= 0) pets.splice(i, 1); },
+  });
+  const onJar = () => { jar.start(); };
+  window.addEventListener(JAR_EVENT, onJar);
+
   // ---- главный цикл ----
   let last = performance.now();
   let raf = 0;
@@ -584,13 +615,14 @@ export function startOctopusPets(): () => void {
     // мягко расталкивает соседская пружина.
     for (let i = 0; i < pets.length; i++) for (let j = i + 1; j < pets.length; j++) {
       const a = pets[i], b = pets[j];
-      if (a.mode === "held" || b.mode === "held") continue;
+      if (a.mode === "held" || b.mode === "held" || a.mode === "scripted" || b.mode === "scripted") continue;
       if (a.mode === "flying" || b.mode === "flying") collide(a, b);
     }
 
     for (const pet of pets) {
       pet.inkCooldown = Math.max(0, pet.inkCooldown - dt);
       if (pet.play && (pet.mode !== "free" || pet.play.partner.mode !== "free" || now > pet.play.until)) endGame(pet);
+      if (pet.mode === "scripted") continue;        // его двигает и рисует сценка
 
       // ---------- в руке ----------
       if (pet.mode === "held" && held?.pet === pet) {
@@ -789,6 +821,7 @@ export function startOctopusPets(): () => void {
         ctx.fillRect(ex, ey + c * 3, c, c);
       }
     }
+    jar.step(dt);                                  // сценка поверх остальных
     raf = requestAnimationFrame(tick);
   };
   raf = requestAnimationFrame(tick);
@@ -805,6 +838,7 @@ export function startOctopusPets(): () => void {
     document.removeEventListener("pointerleave", onLeave);
     window.removeEventListener("resize", onResize);
     window.removeEventListener("scroll", onScroll);
+    window.removeEventListener(JAR_EVENT, onJar);
     document.body.style.userSelect = "";
     document.documentElement.style.cursor = "";
     canvas.remove();
