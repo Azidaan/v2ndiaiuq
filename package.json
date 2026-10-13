@@ -14,6 +14,7 @@
     "dev:api": "node --env-file-if-exists=.env --watch server/index.mjs",
     "dev:web": "vite",
     "db:check": "node --env-file-if-exists=.env server/checkDatabaseIntegrity.mjs",
+    "db:import-legacy-news": "node --env-file-if-exists=.env server/importLegacyNews.mjs",
     "db:import-news-2026": "node --env-file-if-exists=.env server/importNews2026.mjs --replace",
     "start": "node --env-file-if-exists=.env server/start.mjs",
     "typecheck": "tsc --noEmit",

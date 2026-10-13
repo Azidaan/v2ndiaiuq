@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Bold,
   Crop,
+  ExternalLink,
   FileUp,
+  History,
   ImagePlus,
   Italic,
   List,
@@ -200,6 +202,13 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
   const [items, setItems] = useState<ManagedContent[]>([]);
   const [editing, setEditing] = useState<ManagedContent | null>(null);
   const [loading, setLoading] = useState(true);
+  // Новости, перенесённые со старого сайта с пометкой «требует проверки».
+  const [onlyReview, setOnlyReview] = useState(false);
+  const reviewCount = useMemo(() => items.filter((item) => Boolean(item.metadata.needsReview)).length, [items]);
+  const visibleItems = useMemo(
+    () => (onlyReview ? items.filter((item) => Boolean(item.metadata.needsReview)) : items),
+    [items, onlyReview],
+  );
   const label = useMemo(
     () => ADMIN_CONTENT_TYPES.find((entry) => entry.value === type)?.label,
     [type],
@@ -236,8 +245,11 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
     }
   }
   useEffect(() => {
+    setOnlyReview(false);
     void load();
   }, [type]);
+  // Проверили последнюю — фильтр больше не нужен.
+  useEffect(() => { if (reviewCount === 0) setOnlyReview(false); }, [reviewCount]);
 
   async function remove(item: ManagedContent) {
     if (!confirm(`Удалить «${item.title}»?`)) return;
@@ -349,6 +361,17 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
                   <p className="text-xs text-muted-foreground mt-1">
                     {items.length} материалов
                   </p>
+                  {reviewCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setOnlyReview((value) => !value)}
+                      aria-pressed={onlyReview}
+                      className={`mt-2 inline-flex items-center gap-1.5 rounded border px-2 py-1 text-[11px] font-semibold ${onlyReview ? "border-amber-500 bg-amber-100 text-amber-800" : "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"}`}
+                    >
+                      <History size={12} aria-hidden="true" />
+                      {onlyReview ? "Показать все" : `Требуют проверки: ${reviewCount}`}
+                    </button>
+                  )}
                 </div>
                 {canWrite && <button
                   onClick={() =>
@@ -380,7 +403,7 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
                       </button>}
                     </div>
                   )}
-                  {items.map((item) => (
+                  {visibleItems.map((item) => (
                     <div
                       key={item.id}
                       className="flex items-center gap-3 p-4 border-b border-border last:border-0"
@@ -397,6 +420,7 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
                           {item.status === "published"
                             ? "Опубликовано"
                             : "Черновик"}
+                          <LegacyMarks metadata={item.metadata} />
                         </p>
                       </div>
                       {type === "news" && (
@@ -430,6 +454,26 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
         </section>
       </div>
     </main>
+  );
+}
+
+/** Пометки у новостей, перенесённых со старого сайта guiaidn.ru. */
+function LegacyMarks({ metadata }: { metadata: ContentMetadata }) {
+  if (metadata.importedFrom !== "guiaidn.ru") return null;
+  return (
+    <>
+      {" "}· <span title="Перенесено со старого сайта guiaidn.ru">со старого сайта</span>
+      {Boolean(metadata.dateApprox) && (
+        <span title="Точной даты на старом сайте не было — стоит первое число месяца из адреса страницы">
+          {" "}· дата приблизительная
+        </span>
+      )}
+      {Boolean(metadata.needsReview) && (
+        <span className="ml-2 inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+          <History size={10} aria-hidden="true" /> проверить
+        </span>
+      )}
+    </>
   );
 }
 
@@ -553,6 +597,39 @@ function Editor({
           <X size={18} />
         </button>
       </div>
+      {form.metadata.importedFrom === "guiaidn.ru" && (
+        <div className={`mb-4 rounded border px-4 py-3 text-sm ${form.metadata.needsReview ? "border-amber-300 bg-amber-50" : "border-border bg-secondary/50"}`}>
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <History size={15} aria-hidden="true" className="text-muted-foreground" />
+            Перенесено со старого сайта.
+            {typeof form.metadata.sourceUrl === "string" && (
+              <a href={form.metadata.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent underline">
+                Открыть оригинал <ExternalLink size={12} aria-hidden="true" />
+              </a>
+            )}
+          </p>
+          {Boolean(form.metadata.dateApprox) && (
+            <p className="mt-1 text-xs text-amber-800">
+              Точной даты на старом сайте не было: стоит первое число месяца из адреса страницы. Уточните дату — пометка снимется.
+            </p>
+          )}
+          <label className="mt-2 flex items-center gap-2 font-medium">
+            <input
+              type="checkbox"
+              checked={!form.metadata.needsReview}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setForm((current) => {
+                  const { needsReview: _review, ...metadata } = current.metadata;
+                  return { ...current, metadata: checked ? metadata : { ...metadata, needsReview: true } };
+                });
+              }}
+              className="h-4 w-4 accent-[var(--primary)]"
+            />
+            Проверено: текст, картинки и дата в порядке
+          </label>
+        </div>
+      )}
       <div className="grid md:grid-cols-2 gap-4">
         <Field label="Название">
           <input
@@ -581,7 +658,13 @@ function Editor({
           <input
             type="date"
             value={form.published_at.slice(0, 10)}
-            onChange={(e) => update("published_at", e.target.value)}
+            onChange={(e) =>
+              setForm((current) => {
+                // Дату поправили вручную — пометка «приблизительная» больше не нужна.
+                const { dateApprox: _approx, ...metadata } = current.metadata;
+                return { ...current, published_at: e.target.value, metadata };
+              })
+            }
             className="admin-input"
           />
         </Field>
