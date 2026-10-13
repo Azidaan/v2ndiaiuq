@@ -1,17 +1,25 @@
 /**
- * Пиксельный осьминог: тело 14x10 клеток и шесть щупалец веером.
- * Кадры генерируются кодом, а не рисуются вручную: по каждому щупальцу бежит
- * волна от основания к кончику, у каждого со своим сдвигом фазы.
+ * Пиксельный осьминог: тело 14x10 клеток и шесть щупалец.
+ * Кадры генерируются кодом, а не рисуются вручную.
+ *
+ * Позы:
+ * - walk   — щупальца веером, по каждому бежит волна от основания к кончику;
+ * - scared — то же, но глаза круглые и щупальца растопырены;
+ * - tucked — щупальца прижаты к телу и сведены в пучок, как хвост кометы.
+ *   В ней осьминог висит в руке и летит после броска.
+ *
+ * Зрачки в обычной позе смотрят в одну из четырёх сторон: gaze = gx + gy * 2.
  */
 
 export const GRID_W = 38;
 export const GRID_H = 27;
 export const FRAMES = 10;
+export const GAZES = 4;
 
 const BODY_X = 12;
 const BODY_Y = 2;
 
-const PALETTE: Record<number, string> = {
+export const PALETTE: Record<number, string> = {
   1: "#3B7DD8", // тело
   2: "#8DBBF2", // блик
   3: "#2A5FA8", // тень, дальние щупальца
@@ -24,14 +32,15 @@ const PALETTE: Record<number, string> = {
 
 const CODE: Record<string, number> = { X: 1, H: 2, S: 3, W: 4, P: 5, C: 6, M: 5 };
 
+// E — глаз 2x2, зрачок расставляется по направлению взгляда.
 const BODY = [
   "....XXXXXX....",
   "..XXXXXXXXXX..",
   ".XXHHXXXXXXXX.",
   ".XHHXXXXXXXXX.",
   "XXXXXXXXXXXXXX",
-  "XXWWXXXXXXWWXX",
-  "XXWPXXXXXXWPXX",
+  "XXEEXXXXXXEEXX",
+  "XXEEXXXXXXEEXX",
   "XCXXXMXXMXXXCX",
   "XXXXXXMMXXXXXX",
   ".SSSSSSSSSSSS.",
@@ -45,7 +54,13 @@ const SCARED_ROWS: Record<number, string> = {
   8: "XXXXXXMMXXXXXX",
 };
 
-function buildGrid(frame: number, scared: boolean): Uint8Array {
+type Mode = "walk" | "scared" | "tucked" | "reachL" | "reachR";
+
+function buildGrid(frame: number, mode: Mode, gaze: number): Uint8Array {
+  // Тянется щупальцем: обычный веер, но крайнее щупальце со стороны цели
+  // вытянуто почти горизонтально и кончиком «щупает» воздух.
+  const reach = mode === "reachL" ? -1 : mode === "reachR" ? 1 : 0;
+  if (reach) mode = "walk";
   const grid = new Uint8Array(GRID_W * GRID_H);
   const put = (x: number, y: number, color: number) => {
     const cx = Math.round(x);
@@ -53,82 +68,139 @@ function buildGrid(frame: number, scared: boolean): Uint8Array {
     if (cx >= 0 && cy >= 0 && cx < GRID_W && cy < GRID_H) grid[cy * GRID_W + cx] = color;
   };
   const phase = (frame / FRAMES) * Math.PI * 2;
-  // Тело не подпрыгивает: скачок на целую клетку при таком размере читался как дрожь.
-  // Движение передают щупальца.
-  const bob = 0;
-  const baseY = BODY_Y + bob + BODY.length - 0.5;
+  const baseY = BODY_Y + BODY.length - 0.5;
 
-  // Рисуем от дальних к ближним: крайние темнее и уходят почти горизонтально,
-  // внутренние светлее и смотрят вниз — так щупальца не сливаются в комок.
-  const count = 6;
-  const length = 10;
-  for (const i of [0, 5, 1, 4, 2, 3]) {
-    const k = i - (count - 1) / 2;
-    const spread = Math.abs(k) / 2.5;
-    const angle = Math.PI / 2 - k * (scared ? 0.66 : 0.56);
-    const curl = (k < 0 ? 1 : -1) * spread * 1.7;
-    const color = spread > 0.9 ? 3 : spread > 0.5 ? 7 : 1;
-    const tip = spread > 0.9 ? 5 : 3;
-    let x = BODY_X + 6.5 + k * 2.1;
-    let y = baseY;
-    for (let s = 0; s < length; s++) {
-      const t = s / (length - 1);
-      const wave = Math.sin(phase - s * 0.8 + i * 1.7) * 0.5 * t;
-      const a = angle + curl * t * t + wave;
-      x += Math.cos(a) * 0.95;
-      y += Math.sin(a) * 0.95;
-      if (s < 5) {
-        put(x, y, color); put(x + 1, y, color); put(x, y + 1, color); put(x + 1, y + 1, color);
-        if (s === 2 || s === 4) put(x + (k < 0 ? 1 : 0), y + 1, 9);
-      } else if (s < 7) {
-        put(x, y, color); put(x + 1, y, color);
-      } else {
-        put(x, y, s >= length - 2 ? tip : color);
+  if (mode === "tucked") {
+    // Пучок: основания по ширине тела, кончики сходятся к оси под телом.
+    // Лёгкая рябь вдоль пучка — щупальца «полощутся» в потоке.
+    const count = 6;
+    const length = 9;
+    const axis = BODY_X + 6.5;
+    for (const i of [0, 5, 1, 4, 2, 3]) {
+      const k = i - (count - 1) / 2;
+      const color = Math.abs(k) > 2 ? 3 : Math.abs(k) > 1 ? 7 : 1;
+      for (let s = 0; s < length; s++) {
+        const t = s / (length - 1);
+        const ripple = Math.sin(phase * 2 - s * 0.9 + i) * 0.6 * t;
+        const x = axis + k * 2 * (1 - t * 0.8) + ripple;
+        const y = baseY + 0.5 + s;
+        if (s < 3) { put(x, y, color); put(x + 1, y, color); }
+        else put(x, y, s >= length - 2 ? 3 : color);
+        if (s === 1) put(x + (k < 0 ? 1 : 0), y, 9);
+      }
+    }
+  } else {
+    // Веер. Рисуем от дальних к ближним: крайние темнее и уходят почти
+    // горизонтально, внутренние светлее и смотрят вниз — так они не сливаются.
+    const count = 6;
+    const length = 10;
+    const scared = mode === "scared";
+    for (const i of [0, 5, 1, 4, 2, 3]) {
+      const k = i - (count - 1) / 2;
+      const spread = Math.abs(k) / 2.5;
+      const reaching = reach !== 0 && Math.sign(k) === reach && spread > 0.9;
+      const angle = reaching
+        ? (reach < 0 ? Math.PI - 0.12 : 0.12)              // почти горизонтально к цели
+        : Math.PI / 2 - k * (scared ? 0.66 : 0.56);
+      const curl = reaching ? 0 : (k < 0 ? 1 : -1) * spread * 1.7;
+      const len = reaching ? 13 : length;
+      const color = spread > 0.9 ? 3 : spread > 0.5 ? 7 : 1;
+      const tip = spread > 0.9 ? 5 : 3;
+      let x = BODY_X + 6.5 + k * 2.1;
+      let y = baseY;
+      for (let s = 0; s < len; s++) {
+        const t = s / (len - 1);
+        // У тянущегося щупальца кончик быстро шевелится — «щупает» воздух.
+        const wave = reaching
+          ? Math.sin(phase * 2 - s * 0.6) * 0.32 * t * t
+          : Math.sin(phase - s * 0.8 + i * 1.7) * 0.5 * t;
+        const a = angle + curl * t * t + wave;
+        x += Math.cos(a) * 0.95;
+        y += Math.sin(a) * 0.95;
+        if (s < 5) {
+          put(x, y, color); put(x + 1, y, color); put(x, y + 1, color); put(x + 1, y + 1, color);
+          if (s === 2 || s === 4) put(x + (k < 0 ? 1 : 0), y + 1, 9);
+        } else if (s < 7) {
+          put(x, y, color); put(x + 1, y, color);
+        } else {
+          put(x, y, s >= len - 2 ? tip : color);
+        }
       }
     }
   }
 
+  const round = mode !== "walk";          // в руке и в полёте глаза круглые от удивления
+  const gx = gaze % 2, gy = Math.floor(gaze / 2);
   BODY.forEach((row, r) => {
-    const line = scared && SCARED_ROWS[r] ? SCARED_ROWS[r] : row;
+    const line = round && SCARED_ROWS[r] ? SCARED_ROWS[r] : row;
     [...line].forEach((ch, c) => {
-      if (CODE[ch]) put(BODY_X + c, BODY_Y + bob + r, CODE[ch]);
+      if (ch === "E") {
+        const eyeLeft = c < 7 ? 2 : 10;
+        const pupil = c === eyeLeft + gx && r === 5 + gy;
+        put(BODY_X + c, BODY_Y + r, pupil ? 5 : 4);
+      } else if (CODE[ch]) {
+        put(BODY_X + c, BODY_Y + r, CODE[ch]);
+      }
     });
   });
   return grid;
 }
 
 export type SpriteSet = {
-  walk: HTMLCanvasElement[];
+  /** walk[gaze][frame] */
+  walk: HTMLCanvasElement[][];
   scared: HTMLCanvasElement[];
-  /** Занятая рисунком область в клетках: по ней считаются столкновения. */
+  tucked: HTMLCanvasElement[];
+  /** reach[0] тянется влево, reach[1] вправо; reach[side][gaze][frame] */
+  reach: HTMLCanvasElement[][][];
+  /** Занятая рисунком область в клетках (по обычной позе): по ней считаются столкновения. */
   box: { x: number; y: number; w: number; h: number };
   cell: number;
+  width: number;
+  height: number;
 };
 
-/** Растеризует кадры в отдельные холсты нужного масштаба один раз. */
+/** Растеризует все кадры в отдельные холсты нужного масштаба один раз. */
 export function buildSprites(cell: number): SpriteSet {
   let minX = GRID_W, minY = GRID_H, maxX = 0, maxY = 0;
-  const render = (grid: Uint8Array) => {
+  const width = Math.ceil(GRID_W * cell);
+  const height = Math.ceil(GRID_H * cell);
+  // Масштаб бывает дробным (2,1 px на клетку): границы клеток округляем,
+  // чтобы пиксели оставались чёткими, без размытых швов.
+  const edge = (v: number) => Math.round(v * cell);
+  const render = (grid: Uint8Array, measure: boolean) => {
     const canvas = document.createElement("canvas");
-    canvas.width = Math.ceil(GRID_W * cell);
-    canvas.height = Math.ceil(GRID_H * cell);
-    // Масштаб бывает дробным (2,1 px на клетку): границы клеток округляем,
-    // чтобы пиксели оставались чёткими, без размытых швов.
-    const edge = (v: number) => Math.round(v * cell);
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext("2d")!;
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
         const color = grid[y * GRID_W + x];
         if (!color) continue;
-        minX = Math.min(minX, x); minY = Math.min(minY, y);
-        maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+        if (measure) {
+          minX = Math.min(minX, x); minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+        }
         ctx.fillStyle = PALETTE[color];
         ctx.fillRect(edge(x), edge(y), edge(x + 1) - edge(x), edge(y + 1) - edge(y));
       }
     }
     return canvas;
   };
-  const walk = Array.from({ length: FRAMES }, (_, f) => render(buildGrid(f, false)));
-  const scared = Array.from({ length: FRAMES }, (_, f) => render(buildGrid(f, true)));
-  return { walk, scared, cell, box: { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 } };
+  const frames = (mode: Mode, gaze: number, measure: boolean) =>
+    Array.from({ length: FRAMES }, (_, f) => render(buildGrid(f, mode, gaze), measure));
+  const walk = Array.from({ length: GAZES }, (_, g) => frames("walk", g, true));
+  const scared = frames("scared", 3, true);
+  const tucked = frames("tucked", 3, false);
+  // Тянущаяся поза в рамку столкновений не входит: вытянутое щупальце
+  // не должно отталкивать осьминога от текста.
+  const reach = (["reachL", "reachR"] as const).map((mode) =>
+    Array.from({ length: GAZES }, (_, g) => frames(mode, g, false)));
+  return {
+    walk, scared, tucked, reach, cell, width, height,
+    box: { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 },
+  };
 }
+
+/** Центр тела в клетках — вокруг него крутится осьминог в полёте. */
+export const BODY_CENTER = { x: BODY_X + 7, y: BODY_Y + 5 };
