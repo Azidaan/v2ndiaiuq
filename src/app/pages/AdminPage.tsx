@@ -202,13 +202,32 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
   const [items, setItems] = useState<ManagedContent[]>([]);
   const [editing, setEditing] = useState<ManagedContent | null>(null);
   const [loading, setLoading] = useState(true);
-  // Новости, перенесённые со старого сайта с пометкой «требует проверки».
+  // Перенесённые со старого сайта новости, которые ещё никто не проверил.
   const [onlyReview, setOnlyReview] = useState(false);
-  const reviewCount = useMemo(() => items.filter((item) => Boolean(item.metadata.needsReview)).length, [items]);
-  const visibleItems = useMemo(
-    () => (onlyReview ? items.filter((item) => Boolean(item.metadata.needsReview)) : items),
-    [items, onlyReview],
-  );
+  const reviewCount = useMemo(() => items.filter(needsReview).length, [items]);
+  const visibleItems = useMemo(() => (onlyReview ? items.filter(needsReview) : items), [items, onlyReview]);
+  // После закрытия редактора список возвращается к той же прокрутке, а не в начало.
+  const listScroll = useRef<number | null>(null);
+  const openEditor = (item: ManagedContent) => { listScroll.current = window.scrollY; setEditing(item); };
+  useEffect(() => {
+    if (editing || loading || listScroll.current === null) return;
+    const y = listScroll.current;
+    listScroll.current = null;
+    requestAnimationFrame(() => window.scrollTo(0, y));
+  }, [editing, loading]);
+
+  /** Отметка «Проверено» прямо из списка, без открытия редактора. */
+  async function setReviewed(item: ManagedContent, reviewed: boolean) {
+    const { reviewed: _old, ...rest } = item.metadata;
+    const next = { ...item, metadata: reviewed ? { ...rest, reviewed: true } : rest };
+    setItems((current) => current.map((entry) => (entry.id === item.id ? next : entry)));
+    try {
+      await contentRepository.save(next);
+    } catch (reason) {
+      setItems((current) => current.map((entry) => (entry.id === item.id ? item : entry)));
+      alert(`Не удалось сохранить отметку: ${reason instanceof Error ? reason.message : "неизвестная ошибка"}`);
+    }
+  }
   const label = useMemo(
     () => ADMIN_CONTENT_TYPES.find((entry) => entry.value === type)?.label,
     [type],
@@ -423,6 +442,21 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
                           <LegacyMarks metadata={item.metadata} />
                         </p>
                       </div>
+                      {item.metadata.importedFrom === "guiaidn.ru" && (
+                        <label
+                          title="Текст, картинки и дата перенесённой новости проверены"
+                          className={`shrink-0 inline-flex items-center gap-1.5 rounded border px-2 py-1 text-[11px] font-semibold ${item.metadata.reviewed ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-amber-300 bg-amber-50 text-amber-700"}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={Boolean(item.metadata.reviewed)}
+                            disabled={!canWrite}
+                            onChange={(e) => void setReviewed(item, e.target.checked)}
+                            className="h-3.5 w-3.5 accent-[var(--primary)]"
+                          />
+                          {item.metadata.reviewed ? "Проверено" : "Проверить"}
+                        </label>
+                      )}
                       {type === "news" && (
                         <SliderBadge
                           position={sliderPositions.get(item.id)}
@@ -432,7 +466,7 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
                         />
                       )}
                       {canWrite && <button
-                        onClick={() => setEditing(item)}
+                        onClick={() => openEditor(item)}
                         title="Редактировать"
                         className="p-2 text-muted-foreground hover:text-accent"
                       >
@@ -457,6 +491,9 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
   );
 }
 
+/** Перенесена со старого сайта и ещё не отмечена как проверенная. */
+const needsReview = (item: ManagedContent) => item.metadata.importedFrom === "guiaidn.ru" && !item.metadata.reviewed;
+
 /** Пометки у новостей, перенесённых со старого сайта guiaidn.ru. */
 function LegacyMarks({ metadata }: { metadata: ContentMetadata }) {
   if (metadata.importedFrom !== "guiaidn.ru") return null;
@@ -466,11 +503,6 @@ function LegacyMarks({ metadata }: { metadata: ContentMetadata }) {
       {Boolean(metadata.dateApprox) && (
         <span title="Точной даты на старом сайте не было — стоит первое число месяца из адреса страницы">
           {" "}· дата приблизительная
-        </span>
-      )}
-      {Boolean(metadata.needsReview) && (
-        <span className="ml-2 inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-          <History size={10} aria-hidden="true" /> проверить
         </span>
       )}
     </>
@@ -598,13 +630,18 @@ function Editor({
         </button>
       </div>
       {form.metadata.importedFrom === "guiaidn.ru" && (
-        <div className={`mb-4 rounded border px-4 py-3 text-sm ${form.metadata.needsReview ? "border-amber-300 bg-amber-50" : "border-border bg-secondary/50"}`}>
+        <div className={`mb-4 rounded border px-4 py-3 text-sm ${form.metadata.reviewed ? "border-border bg-secondary/50" : "border-amber-300 bg-amber-50"}`}>
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <History size={15} aria-hidden="true" className="text-muted-foreground" />
             Перенесено со старого сайта.
             {typeof form.metadata.sourceUrl === "string" && (
               <a href={form.metadata.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent underline">
                 Открыть оригинал <ExternalLink size={12} aria-hidden="true" />
+              </a>
+            )}
+            {form.id && form.slug && (
+              <a href={`/news/${form.slug}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent underline">
+                Открыть на новом сайте <ExternalLink size={12} aria-hidden="true" />
               </a>
             )}
           </p>
@@ -616,12 +653,12 @@ function Editor({
           <label className="mt-2 flex items-center gap-2 font-medium">
             <input
               type="checkbox"
-              checked={!form.metadata.needsReview}
+              checked={Boolean(form.metadata.reviewed)}
               onChange={(e) => {
                 const checked = e.target.checked;
                 setForm((current) => {
-                  const { needsReview: _review, ...metadata } = current.metadata;
-                  return { ...current, metadata: checked ? metadata : { ...metadata, needsReview: true } };
+                  const { reviewed: _reviewed, ...metadata } = current.metadata;
+                  return { ...current, metadata: checked ? { ...metadata, reviewed: true } : metadata };
                 });
               }}
               className="h-4 w-4 accent-[var(--primary)]"

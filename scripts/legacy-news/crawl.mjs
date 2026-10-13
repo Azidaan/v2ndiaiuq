@@ -256,6 +256,12 @@ for (const card of todo) {
   if (cover) {
     image = asset(cover.getAttribute("src"));
     (cover.closest("figure") ?? cover).remove(); // на странице новости обложка выводится отдельно
+    // Старый сайт ставил под текстом то же фото целиком (…-940.jpg) — это дубль обложки.
+    const stem = (cover.getAttribute("src") ?? "").split("/").pop().replace(/-940-480\.[a-z]+$/i, "").toLowerCase();
+    for (const img of content.querySelectorAll("img")) {
+      const name = (img.getAttribute("src") ?? "").split("/").pop().toLowerCase().replace(/\.[a-z]+$/, "");
+      if (name === stem || name === `${stem}-940`) (img.closest("figure") ?? img).remove();
+    }
   } else if (card.thumb) {
     image = asset(card.thumb);
   }

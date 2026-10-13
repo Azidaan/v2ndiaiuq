@@ -1,7 +1,7 @@
 /**
  * Перенос новостей старого сайта guiaidn.ru в CMS.
  *
- *   node server/importLegacyNews.mjs [файл.json …] [--update] [--review]
+ *   node server/importLegacyNews.mjs [файл.json …] [--update]
  *
  * Без аргументов берёт все server/seeds/legacy-news/news-*.json — их готовит
  * scripts/legacy-news/crawl.mjs. Скачивает картинки и документы старого сайта
@@ -9,8 +9,8 @@
  *
  * Новость, которая уже есть в базе (по адресу), не трогается — правки из
  * админки не пропадут при повторном запуске. --update перезаписывает ранее
- * перенесённые новости заново. --review помечает новости «требует проверки»
- * (так переносятся 2018–2023: у них разметка старого сайта неоднородна).
+ * перенесённые новости заново, сохраняя только отметку «Проверено».
+ * Все перенесённые новости приходят непроверенными — их отмечают в админке.
  */
 import pg from "pg";
 import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
@@ -23,7 +23,6 @@ const seedRoot = join(root, "server", "seeds", "legacy-news");
 const uploadsRoot = resolve(process.env.UPLOAD_DIR || join(root, "uploads"));
 const args = process.argv.slice(2);
 const update = args.includes("--update");
-const review = args.includes("--review");
 const files = args.filter((a) => !a.startsWith("--"));
 const seeds = files.length ? files : (await readdir(seedRoot)).filter((f) => /^news-.*\.json$/.test(f)).map((f) => join(seedRoot, f));
 if (!seeds.length) throw new Error(`Нет файлов с новостями в ${seedRoot}`);
@@ -81,16 +80,17 @@ let inserted = 0, updated = 0, kept = 0;
 try {
   await client.query("BEGIN");
   for (const item of items) {
-    const metadata = { ...item.metadata, ...(review ? { needsReview: true } : {}) };
+    const { rows } = await client.query("SELECT metadata FROM content_items WHERE slug = $1", [item.slug]);
+    const old = rows[0]?.metadata ?? null;
+    const metadata = { ...item.metadata, ...(old?.reviewed ? { reviewed: true } : {}) };
     const values = [item.type, item.title, item.slug, item.summary, dropFailed(item.body), item.category,
       item.published_at, item.status, failed.has(item.image_url) ? "" : item.image_url, item.file_url, metadata];
-    const { rows } = await client.query("SELECT metadata->>'importedFrom' AS source FROM content_items WHERE slug = $1", [item.slug]);
-    if (!rows.length) {
+    if (!old) {
       await client.query(
         `INSERT INTO content_items (type,title,slug,summary,body,category,published_at,status,image_url,file_url,metadata)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, values);
       inserted++;
-    } else if (update && rows[0].source === "guiaidn.ru") {
+    } else if (update && old.importedFrom === "guiaidn.ru") {
       await client.query(
         `UPDATE content_items SET type=$1,title=$2,summary=$4,body=$5,category=$6,published_at=$7,status=$8,
            image_url=$9,file_url=$10,metadata=$11,updated_at=now() WHERE slug=$3`, values);
