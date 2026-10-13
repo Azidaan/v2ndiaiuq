@@ -1,4 +1,4 @@
-import { BODY_CENTER, FRAMES, buildSprites, type SpriteSet } from "./sprite";
+import { BODY_CENTER, FRAMES, UNFOLD_STEPS, buildSprites, type SpriteSet } from "./sprite";
 
 /**
  * Осьминоги-питомцы поверх страницы. Один прозрачный canvas на весь экран,
@@ -56,6 +56,8 @@ const FLY_DRAG = 0.9;            // в воде комета гаснет пла
 const LAND_SPEED = 70;           // ниже этой скорости комета снова становится осьминогом
 const BOUNCE = 0.55;             // доля скорости после отскока от края
 const INK_IMPACT = 950;          // удар сильнее — выпускает чернила
+const FOLD_SPEED = 7;            // 1/с, поджимает щупальца, когда схватили (~0,15 с)
+const UNFOLD_SPEED = 1.8;        // 1/с, распускает после полёта (~0,55 с)
 const SHAKE_FLIPS = 5;           // столько разворотов за секунду в руке — тоже чернила
 
 // Догонялки: время от времени двое затевают игру. Один убегает, второй догоняет
@@ -95,6 +97,8 @@ type Pet = {
   angle: number;                 // поворот спрайта в полёте и в руке
   gaze: number;
   inkCooldown: number;
+  dizzyUntil: number;
+  fold: number;                  // 1 — щупальца собраны в пучок кометы, 0 — веером            // оглушён ударом — над головой кружат звёздочки
   play: { role: "chase" | "run"; partner: Pet; until: number; readyAt: number } | null;
 };
 
@@ -191,7 +195,7 @@ export function startOctopusPets(): () => void {
     pets.push({
       x: spot.x, y: spot.y, vx: 0, vy: 0, ax: 0, ay: 0, cap: WANDER_CAP, drag: DRAG_CALM,
       tx: spot.x, ty: spot.y, idle: rand(0.5, 2.5), scaredUntil: 0, phase: rand(0, FRAMES),
-      alpha: 0, mode: "free", angle: 0, gaze: 3, inkCooldown: 0, play: null,
+      alpha: 0, mode: "free", angle: 0, gaze: 3, inkCooldown: 0, dizzyUntil: 0, fold: 0, play: null,
     });
   }
 
@@ -449,6 +453,70 @@ export function startOctopusPets(): () => void {
     return (dx > 0 ? 1 : 0) + (dy > 0 ? 2 : 0);
   };
 
+/** Кадр между пучком и веером по тому, насколько осьминог сейчас сложен. */
+  const foldImage = (pet: Pet, frame: number, open: HTMLCanvasElement) => {
+    const k = Math.round((1 - pet.fold) * (UNFOLD_STEPS + 1)) - 1;
+    if (k < 0) return sp().tucked[frame];
+    if (k >= UNFOLD_STEPS) return open;
+    return sp().unfold[k][frame];
+  };
+
+  // ---- столкновения: брошенный сшибает остальных ----
+  const COLLIDE_DIST_CELLS = 13;   // ширина тела в клетках, чуть меньше рисунка
+  const RESTITUTION = 0.85;        // доля энергии, остающаяся после удара
+  const KNOCK_FLY = 170;           // задет сильнее — сам становится кометой
+
+  /** Отправляет осьминога в полёт: из руки, после броска или от удара. */
+  const launch = (pet: Pet) => {
+    if (pet.play) endGame(pet);
+    pet.mode = "flying";
+  };
+
+  /**
+   * Упругий удар двух осьминогов одинаковой массы. Скорость передаётся вдоль
+   * линии центров, как у бильярдных шаров. Сильно задетый сам летит кометой —
+   * отсюда цепные столкновения; слабо задетого просто отталкивает.
+   */
+  const collide = (a: Pet, b: Pet) => {
+    const ca = centerOf(a), cb = centerOf(b);
+    const dx = cb.x - ca.x, dy = cb.y - ca.y;
+    const d = Math.hypot(dx, dy);
+    const min = COLLIDE_DIST_CELLS * sp().cell;
+    if (d === 0 || d >= min) return;
+    const nx = dx / d, ny = dy / d;
+    // Расталкиваем, чтобы не застряли друг в друге.
+    const overlap = (min - d) / 2;
+    a.x -= nx * overlap; a.y -= ny * overlap;
+    b.x += nx * overlap; b.y += ny * overlap;
+    const approach = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+    if (approach <= 0) return;                      // уже разлетаются
+    const j = approach * (1 + RESTITUTION) / 2;
+    a.vx -= j * nx; a.vy -= j * ny;
+    b.vx += j * nx; b.vy += j * ny;
+
+    const mx = ca.x + nx * min / 2, my = ca.y + ny * min / 2;
+    const sparks = Math.min(16, 4 + Math.round(j / 60));
+    for (let i = 0; i < sparks; i++) {
+      const ang = Math.atan2(ny, nx) + rand(-1.6, 1.6), s = rand(60, 200);
+      addParticle({ kind: "spark", x: mx, y: my, vx: Math.cos(ang) * s, vy: Math.sin(ang) * s, life: rand(0.25, 0.55), size: Math.random() < 0.4 ? 2 : 1 });
+    }
+    for (let i = 0; i < 3; i++) addParticle({ kind: "bubble", x: mx + rand(-6, 6), y: my, vx: rand(-40, 40), vy: -rand(40, 90), life: rand(0.7, 1.2), size: 2 });
+
+    const now = performance.now();
+    for (const pet of [a, b]) {
+      if (pet.mode === "held") continue;
+      const speed = Math.hypot(pet.vx, pet.vy);
+      if (speed > KNOCK_FLY) { launch(pet); pet.dizzyUntil = Infinity; }   // звёздочки — после приземления
+      else if (pet.mode === "free") {
+        // Не обрезаем полученную скорость до прогулочной — пусть проскользит.
+        pet.cap = Math.max(pet.cap, speed);
+        pet.scaredUntil = now + 900;
+        pet.dizzyUntil = now + 2200;
+        if (pet.play) endGame(pet);
+      }
+    }
+  };
+
   // ---- догонялки ----
   let nextGameAt = performance.now() + rand(4, 8) * 1000;
 
@@ -512,6 +580,14 @@ export function startOctopusPets(): () => void {
     updateParticles(dt, s.cell, "spark");
     maybeStartGame(now, pointerLive);
 
+    // Удары считаем, только если в паре есть летящий: гуляющих и так
+    // мягко расталкивает соседская пружина.
+    for (let i = 0; i < pets.length; i++) for (let j = i + 1; j < pets.length; j++) {
+      const a = pets[i], b = pets[j];
+      if (a.mode === "held" || b.mode === "held") continue;
+      if (a.mode === "flying" || b.mode === "flying") collide(a, b);
+    }
+
     for (const pet of pets) {
       pet.inkCooldown = Math.max(0, pet.inkCooldown - dt);
       if (pet.play && (pet.mode !== "free" || pet.play.partner.mode !== "free" || now > pet.play.until)) endGame(pet);
@@ -532,7 +608,8 @@ export function startOctopusPets(): () => void {
           pet.inkCooldown = 2.5;
           held.flips = [];
         }
-        drawPet(pet, s.tucked[Math.floor(pet.phase % FRAMES)]);
+        pet.fold = Math.min(1, pet.fold + dt * FOLD_SPEED);
+        drawPet(pet, foldImage(pet, Math.floor(pet.phase % FRAMES), s.scared[Math.floor(pet.phase % FRAMES)]));
         continue;
       }
 
@@ -548,8 +625,10 @@ export function startOctopusPets(): () => void {
             vx: rand(-60, 60), vy: -rand(30, 90), life: rand(0.6, 1.2), size: Math.random() < 0.5 ? 2 : 3 });
           if (impact > INK_IMPACT && pet.inkCooldown === 0) { releaseInk(c.x, c.y, away); pet.inkCooldown = 2.5; }
         };
-        // По бокам не отскакивает — пролетает насквозь и выныривает с другой стороны.
-        wrap(pet);
+        // Брошенный рикошетит от всех четырёх краёв — так он долетает до соседей
+        // и сшибает их. Сквозь боковые края проходят только гуляющие.
+        if (b.x < 0) { pet.x -= b.x; bounce(Math.abs(pet.vx), 0); pet.vx = Math.abs(pet.vx) * BOUNCE; }
+        if (b.x + b.w > vw) { pet.x -= b.x + b.w - vw; bounce(Math.abs(pet.vx), Math.PI); pet.vx = -Math.abs(pet.vx) * BOUNCE; }
         if (b.y < 60) { pet.y += 60 - b.y; bounce(Math.abs(pet.vy), Math.PI / 2); pet.vy = Math.abs(pet.vy) * BOUNCE; }
         if (b.y + b.h > vh) { pet.y -= b.y + b.h - vh; bounce(Math.abs(pet.vy), -Math.PI / 2); pet.vy = -Math.abs(pet.vy) * BOUNCE; }
 
@@ -566,14 +645,18 @@ export function startOctopusPets(): () => void {
           pet.mode = "free";
           pet.scaredUntil = now + 900;
           pet.ax = pet.ay = 0;
-          pet.cap = WANDER_CAP;
+          pet.cap = Math.max(WANDER_CAP, speed);   // скорость гасится плавно, без рывка
+          if (pet.dizzyUntil === Infinity) pet.dizzyUntil = now + 2200;   // сбит ударом
           pet.tx = pet.x; pet.ty = pet.y; pet.idle = rand(1.2, 2.4);
         }
-        drawPet(pet, s.tucked[Math.floor(pet.phase % FRAMES)]);
+        pet.fold = Math.min(1, pet.fold + dt * FOLD_SPEED);
+        drawPet(pet, foldImage(pet, Math.floor(pet.phase % FRAMES), s.scared[Math.floor(pet.phase % FRAMES)]));
         continue;
       }
 
       // ---------- обычная жизнь ----------
+      // Сбит ударом и уже на ногах (приземлился или его поймали и отпустили).
+      if (pet.dizzyUntil === Infinity) pet.dizzyUntil = now + 2200;
       // Выправляемся после полёта или руки плавно, а не щелчком.
       pet.angle += (0 - pet.angle) * Math.min(1, dt * 6);
       if (Math.abs(pet.angle) < 0.01) pet.angle = 0;
@@ -659,21 +742,46 @@ export function startOctopusPets(): () => void {
       wrap(pet);
       emitTrail(pet, dt);
 
-      pet.phase += dt * (1.6 + Math.min(ANIM_MAX_SPEED, Math.hypot(pet.vx, pet.vy)) * 0.045);
-      pet.alpha += (1 - pet.alpha) * Math.min(1, dt * 4);
       const playLink = pet.play ? toward(pet, pet.play.partner) : null;
+      const reaching = pet.play?.role === "chase" && playLink && playLink.d < REACH_DIST && now >= pet.play.readyAt;
+      // Щекочущий частит щупальцами, как пальцами, а убегающий хихикает и ёжится.
+      const tickled = pet.play?.role === "run" && playLink && playLink.d < REACH_DIST;
+      pet.phase += dt * (reaching ? 9 : 1.6 + Math.min(ANIM_MAX_SPEED, Math.hypot(pet.vx, pet.vy)) * 0.045);
+      pet.alpha += (1 - pet.alpha) * Math.min(1, dt * 4);
       pet.gaze = playLink
         ? (playLink.dx > 0 ? 1 : 0) + (playLink.dy > 0 ? 2 : 0)   // в игре смотрит на партнёра
         : gazeFor(pet, pointerLive);
 
       const afraid = now < pet.scaredUntil;
       const frame = Math.floor(pet.phase % FRAMES);
-      const reaching = pet.play?.role === "chase" && playLink && playLink.d < REACH_DIST && now >= pet.play.readyAt;
-      const image = afraid
+      // После полёта щупальца распускаются из пучка постепенно.
+      pet.fold = Math.max(0, pet.fold - dt * UNFOLD_SPEED);
+      const open = afraid
         ? s.scared[frame]
         : reaching ? s.reach[playLink!.dx < 0 ? 0 : 1][pet.gaze][frame] : s.walk[pet.gaze][frame];
-      drawPet(pet, image);
-      if (afraid && !pet.angle) {
+      const image = pet.fold > 0 ? foldImage(pet, frame, open) : open;
+      if (tickled) {
+        // Ёжится от щекотки: мелкая дрожь и смешинки-пузырьки.
+        const jx = Math.round(Math.sin(now / 35) * s.cell * 0.6);
+        pet.x += jx; drawPet(pet, image); pet.x -= jx;
+        if (Math.random() < dt * 6) addParticle({ kind: "bubble", x: cx + rand(-12, 12), y: b.y + 4,
+          vx: rand(-30, 30), vy: -rand(50, 90), life: rand(0.5, 0.9), size: 2 });
+      } else drawPet(pet, image);
+      if (now < pet.dizzyUntil && pet.fold === 0) {
+        // Оглушён: три пиксельные звёздочки кружат над головой по эллипсу.
+        // Задние (верхняя половина круга) тусклее — так видна глубина.
+        const c = Math.max(2, Math.round(s.cell));
+        const left = (pet.dizzyUntil - now) / 2200;
+        for (let i = 0; i < 3; i++) {
+          const a = now / 260 + (i * Math.PI * 2) / 3;
+          const sx = Math.round(cx + Math.cos(a) * c * 7), sy = Math.round(b.y - c * 3 + Math.sin(a) * c * 1.6);
+          ctx.globalAlpha = Math.min(1, left * 3) * (Math.sin(a) > 0 ? 1 : 0.55);
+          ctx.fillStyle = i === 1 ? "#FFFFFF" : "#FFD23F";
+          ctx.fillRect(sx - c, sy, c * 3, c);
+          ctx.fillRect(sx, sy - c, c, c * 3);
+        }
+        ctx.globalAlpha = 1;
+      } else if (afraid && !pet.angle) {
         const c = Math.max(2, Math.round(s.cell));
         const ex = Math.round(cx - c / 2), ey = Math.round(b.y - c * 5);
         ctx.fillStyle = "#E8473D";

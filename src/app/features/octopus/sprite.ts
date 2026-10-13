@@ -15,6 +15,7 @@ export const GRID_W = 38;
 export const GRID_H = 27;
 export const FRAMES = 10;
 export const GAZES = 4;
+export const UNFOLD_STEPS = 6;
 
 const BODY_X = 12;
 const BODY_Y = 2;
@@ -56,7 +57,12 @@ const SCARED_ROWS: Record<number, string> = {
 
 type Mode = "walk" | "scared" | "tucked" | "reachL" | "reachR";
 
-function buildGrid(frame: number, mode: Mode, gaze: number): Uint8Array {
+/**
+ * unfold — насколько щупальца раскрыты из пучка кометы в веер (0…1).
+ * Промежуточные значения дают кадры перехода, чтобы осьминог после полёта
+ * распускал щупальца постепенно, а не перескакивал из одной позы в другую.
+ */
+function buildGrid(frame: number, mode: Mode, gaze: number, unfold = 1): Uint8Array {
   // Тянется щупальцем: обычный веер, но крайнее щупальце со стороны цели
   // вытянуто почти горизонтально и кончиком «щупает» воздух.
   const reach = mode === "reachL" ? -1 : mode === "reachR" ? 1 : 0;
@@ -95,28 +101,40 @@ function buildGrid(frame: number, mode: Mode, gaze: number): Uint8Array {
     const count = 6;
     const length = 10;
     const scared = mode === "scared";
+    const axis = BODY_X + 6.5;
     for (const i of [0, 5, 1, 4, 2, 3]) {
       const k = i - (count - 1) / 2;
       const spread = Math.abs(k) / 2.5;
-      const reaching = reach !== 0 && Math.sign(k) === reach && spread > 0.9;
+      // Щекотка: четыре щупальца вытянуты вперёд к цели узким веером,
+      // кончики наперебой дёргаются вверх-вниз, как пальцы, которые щекочут.
+      // Два дальних щупальца с другой стороны остаются опорой.
+      const ahead = k * reach;                     // 2.5 — крайнее к цели, -0.5 — ближнее внутреннее
+      const reaching = reach !== 0 && ahead > -1;
+      const fan = reaching ? (2.5 - ahead) * 0.22 - 0.1 : 0;   // от чуть вверх до наискось вниз
       const angle = reaching
-        ? (reach < 0 ? Math.PI - 0.12 : 0.12)              // почти горизонтально к цели
+        ? (reach < 0 ? Math.PI - fan : fan)
         : Math.PI / 2 - k * (scared ? 0.66 : 0.56);
       const curl = reaching ? 0 : (k < 0 ? 1 : -1) * spread * 1.7;
-      const len = reaching ? 13 : length;
+      const len = reaching ? Math.round(10 + ahead) : length;
       const color = spread > 0.9 ? 3 : spread > 0.5 ? 7 : 1;
       const tip = spread > 0.9 ? 5 : 3;
       let x = BODY_X + 6.5 + k * 2.1;
       let y = baseY;
       for (let s = 0; s < len; s++) {
         const t = s / (len - 1);
-        // У тянущегося щупальца кончик быстро шевелится — «щупает» воздух.
         const wave = reaching
-          ? Math.sin(phase * 2 - s * 0.6) * 0.32 * t * t
+          ? Math.sin(phase * 3 - s * 0.9 + ahead * 1.9) * 0.7 * t * t
           : Math.sin(phase - s * 0.8 + i * 1.7) * 0.5 * t;
         const a = angle + curl * t * t + wave;
         x += Math.cos(a) * 0.95;
         y += Math.sin(a) * 0.95;
+        // Переход: точка веера тянется к своей точке в пучке кометы.
+        const px = x, py = y;
+        if (unfold < 1) {
+          const ripple = Math.sin(phase * 2 - s * 0.9 + i) * 0.6 * t;
+          x = axis + k * 2 * (1 - t * 0.8) + ripple + (x - axis - k * 2 * (1 - t * 0.8) - ripple) * unfold;
+          y = baseY + 0.5 + t * 8 + (y - baseY - 0.5 - t * 8) * unfold;
+        }
         if (s < 5) {
           put(x, y, color); put(x + 1, y, color); put(x, y + 1, color); put(x + 1, y + 1, color);
           if (s === 2 || s === 4) put(x + (k < 0 ? 1 : 0), y + 1, 9);
@@ -125,6 +143,7 @@ function buildGrid(frame: number, mode: Mode, gaze: number): Uint8Array {
         } else {
           put(x, y, s >= len - 2 ? tip : color);
         }
+        x = px; y = py;
       }
     }
   }
@@ -151,6 +170,8 @@ export type SpriteSet = {
   walk: HTMLCanvasElement[][];
   scared: HTMLCanvasElement[];
   tucked: HTMLCanvasElement[];
+  /** unfold[step][frame] — кадры перехода от пучка (шаг 0) к вееру. */
+  unfold: HTMLCanvasElement[][];
   /** reach[0] тянется влево, reach[1] вправо; reach[side][gaze][frame] */
   reach: HTMLCanvasElement[][][];
   /** Занятая рисунком область в клетках (по обычной позе): по ней считаются столкновения. */
@@ -187,17 +208,18 @@ export function buildSprites(cell: number): SpriteSet {
     }
     return canvas;
   };
-  const frames = (mode: Mode, gaze: number, measure: boolean) =>
-    Array.from({ length: FRAMES }, (_, f) => render(buildGrid(f, mode, gaze), measure));
+  const frames = (mode: Mode, gaze: number, measure: boolean, unfold = 1) =>
+    Array.from({ length: FRAMES }, (_, f) => render(buildGrid(f, mode, gaze, unfold), measure));
   const walk = Array.from({ length: GAZES }, (_, g) => frames("walk", g, true));
   const scared = frames("scared", 3, true);
   const tucked = frames("tucked", 3, false);
+  const unfold = Array.from({ length: UNFOLD_STEPS }, (_, k) => frames("scared", 3, false, (k + 1) / (UNFOLD_STEPS + 1)));
   // Тянущаяся поза в рамку столкновений не входит: вытянутое щупальце
   // не должно отталкивать осьминога от текста.
   const reach = (["reachL", "reachR"] as const).map((mode) =>
     Array.from({ length: GAZES }, (_, g) => frames(mode, g, false)));
   return {
-    walk, scared, tucked, reach, cell, width, height,
+    walk, scared, tucked, unfold, reach, cell, width, height,
     box: { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 },
   };
 }
