@@ -2,6 +2,7 @@ import { Outlet, ScrollRestoration } from "react-router";
 import Header from "./Header";
 import Footer from "./Footer";
 import CookieConsent from "./CookieConsent";
+import OctopusPets from "../../features/octopus/OctopusPets";
 
 export default function Root() {
   return (
@@ -12,6 +13,7 @@ export default function Root() {
       </main>
       <Footer />
       <CookieConsent />
+      <OctopusPets />
       <ScrollRestoration />
     </div>
   );
