@@ -16,6 +16,10 @@ export const GRID_H = 27;
 export const FRAMES = 10;
 export const GAZES = 4;
 export const UNFOLD_STEPS = 6;
+/** Сколько кадров у поворота крышки щупальцами — от крайнего левого до правого. */
+export const GRIP_STEPS = 7;
+/** Кадров на полный оборот сидящего на крышке осьминога вокруг своей оси. */
+export const SPIN_STEPS = 12;
 
 const BODY_X = 12;
 const BODY_Y = 2;
@@ -55,14 +59,20 @@ const SCARED_ROWS: Record<number, string> = {
   8: "XXXXXXMMXXXXXX",
 };
 
-type Mode = "walk" | "scared" | "tucked" | "reachL" | "reachR";
+type Mode = "walk" | "scared" | "tucked" | "reachL" | "reachR" | "grip" | "gripStrain";
+
+/**
+ * Хват крышки. sweep — насколько щупальца провернули крышку (-1…1);
+ * open — перехват: щупальца разжаты и приподняты.
+ */
+type Grip = { sweep: number; open: boolean };
 
 /**
  * unfold — насколько щупальца раскрыты из пучка кометы в веер (0…1).
  * Промежуточные значения дают кадры перехода, чтобы осьминог после полёта
  * распускал щупальца постепенно, а не перескакивал из одной позы в другую.
  */
-function buildGrid(frame: number, mode: Mode, gaze: number, unfold = 1): Uint8Array {
+function buildGrid(frame: number, mode: Mode, gaze: number, unfold = 1, grip?: Grip): Uint8Array {
   // Тянется щупальцем: обычный веер, но крайнее щупальце со стороны цели
   // вытянуто почти горизонтально и кончиком «щупает» воздух.
   const reach = mode === "reachL" ? -1 : mode === "reachR" ? 1 : 0;
@@ -111,20 +121,35 @@ function buildGrid(frame: number, mode: Mode, gaze: number, unfold = 1): Uint8Ar
       const ahead = k * reach;                     // 2.5 — крайнее к цели, -0.5 — ближнее внутреннее
       const reaching = reach !== 0 && ahead > -1;
       const fan = reaching ? (2.5 - ahead) * 0.22 - 0.1 : 0;   // от чуть вверх до наискось вниз
-      const angle = reaching
+      let angle = reaching
         ? (reach < 0 ? Math.PI - fan : fan)
         : Math.PI / 2 - k * (scared ? 0.66 : 0.56);
-      const curl = reaching ? 0 : (k < 0 ? 1 : -1) * spread * 1.7;
-      const len = reaching ? Math.round(10 + ahead) : length;
+      let curl = reaching ? 0 : (k < 0 ? 1 : -1) * spread * 1.7;
+      let len = reaching ? Math.round(10 + ahead) : length;
+      const side = Math.sign(k);
+      if (grip?.open) {
+        // Перехват: щупальца разжаты, приподняты и разведены.
+        angle = Math.PI / 2 - k * 0.38 - grip.sweep * 0.3;
+        curl = -side * 0.7;
+        len = Math.round(7 + spread * 3);
+      } else if (grip) {
+        // Хват: щупальца сходятся вниз к краям крышки, кончики подгибаются
+        // под неё. Все вместе проворачиваются вслед за крышкой.
+        angle = Math.PI / 2 - k * 0.2 + grip.sweep * 0.42;
+        curl = side * (0.6 + 1.6 * spread);
+        len = Math.round(9 + spread * 3);
+      }
       const color = spread > 0.9 ? 3 : spread > 0.5 ? 7 : 1;
       const tip = spread > 0.9 ? 5 : 3;
       let x = BODY_X + 6.5 + k * 2.1;
       let y = baseY;
       for (let s = 0; s < len; s++) {
         const t = s / (len - 1);
-        const wave = reaching
-          ? Math.sin(phase * 3 - s * 0.9 + ahead * 1.9) * 0.7 * t * t
-          : Math.sin(phase - s * 0.8 + i * 1.7) * 0.5 * t;
+        const wave = grip
+          ? Math.sin(phase * 3 - s + i * 2.1) * (mode === "gripStrain" ? 0.16 : 0.06) * t   // дрожат от усилия
+          : reaching
+            ? Math.sin(phase * 3 - s * 0.9 + ahead * 1.9) * 0.7 * t * t
+            : Math.sin(phase - s * 0.8 + i * 1.7) * 0.5 * t;
         const a = angle + curl * t * t + wave;
         x += Math.cos(a) * 0.95;
         y += Math.sin(a) * 0.95;
@@ -148,7 +173,8 @@ function buildGrid(frame: number, mode: Mode, gaze: number, unfold = 1): Uint8Ar
     }
   }
 
-  const round = mode !== "walk";          // в руке и в полёте глаза круглые от удивления
+  // В руке, в полёте и от натуги глаза круглые; спокойный хват — с обычным взглядом.
+  const round = mode !== "walk" && mode !== "grip";
   const gx = gaze % 2, gy = Math.floor(gaze / 2);
   BODY.forEach((row, r) => {
     const line = round && SCARED_ROWS[r] ? SCARED_ROWS[r] : row;
@@ -165,6 +191,85 @@ function buildGrid(frame: number, mode: Mode, gaze: number, unfold = 1): Uint8Ar
   return grid;
 }
 
+/**
+ * Сидит на крышке, повернувшись вокруг своей оси на yaw (0 — лицом к зрителю).
+ * Объём изображается так: глаза, рот и румянец лежат на окружности тела и при
+ * повороте съезжают к краю и прячутся за ним, со спины лица нет. Шесть щупалец
+ * лежат кольцом на крышке и загибаются за её край; задние темнее и закрыты
+ * телом, передние ниже и светлее.
+ */
+function buildSpinGrid(yaw: number, strain: boolean, frame: number): Uint8Array {
+  const grid = new Uint8Array(GRID_W * GRID_H);
+  const put = (x: number, y: number, color: number) => {
+    const cx = Math.round(x), cy = Math.round(y);
+    if (cx >= 0 && cy >= 0 && cx < GRID_W && cy < GRID_H) grid[cy * GRID_W + cx] = color;
+  };
+  const cx = BODY_X + 7;                         // ось тела
+  const R = 6.3;                                 // радиус «цилиндра» тела
+  const baseY = BODY_Y + BODY.length - 0.5;
+  const phase = (frame / FRAMES) * Math.PI * 2;
+
+  const legs = Array.from({ length: 6 }, (_, i) => {
+    const a = ((i + 0.5) / 6) * Math.PI * 2 - yaw;
+    return { i, sin: Math.sin(a), depth: Math.cos(a) };
+  }).sort((p, q) => p.depth - q.depth);
+  const drawLeg = ({ i, sin, depth }: { i: number; sin: number; depth: number }) => {
+    const color = depth < -0.3 ? 3 : depth < 0.4 ? 7 : 1;
+    const steps = 11;
+    for (let s = 0; s < steps; s++) {
+      const t = s / (steps - 1);
+      let r: number, y: number;
+      if (t < 0.7) {
+        // По крышке от тела к краю. Дальний край крышки выше, ближний ниже.
+        const u = t / 0.7;
+        r = 4.2 + u * 4.6;
+        y = baseY + 0.6 + depth * r * 0.36 + Math.sin(phase * 2 + i * 1.3) * 0.2 * u;
+      } else {
+        // За краем загибается вниз и чуть внутрь.
+        const u = (t - 0.7) / 0.3;
+        r = 8.8 - u * 0.8;
+        y = baseY + 0.6 + depth * 8.8 * 0.36 + u * 4;
+      }
+      const x = cx + sin * r - 0.5;
+      const tip = s >= steps - 2;
+      put(x, y, tip ? (depth > -0.3 ? 5 : 3) : color);
+      if (s < 5) { put(x + 1, y, color); put(x, y + 1, color); }
+      else if (t >= 0.7) put(x, y + 0.5, color);           // загиб за край без просветов
+      if (s === 2 && depth > 0.3) put(x, y + 1, 9);
+    }
+  };
+  for (const leg of legs) if (leg.depth < 0) drawLeg(leg);
+
+  // Тело без лица — лицо рисуется отдельно, с учётом поворота.
+  BODY.forEach((row, r) => [...row].forEach((ch, c) => {
+    const code = ch === "E" || ch === "C" || ch === "M" ? 1 : CODE[ch];
+    if (code) put(BODY_X + c, BODY_Y + r, code);
+  }));
+  /** Точка лица на угле φ от середины; вернёт x или null, если она за краем. */
+  const face = (phi: number, minVis = 0.15) => {
+    const d = phi - yaw;
+    return Math.cos(d) > minVis ? { x: cx + Math.sin(d) * R, vis: Math.cos(d) } : null;
+  };
+  for (const phi of [-0.72, 0.72]) {
+    const e = face(phi, 0.2);
+    if (!e) continue;
+    const w = strain ? (e.vis > 0.75 ? 3 : e.vis > 0.45 ? 2 : 1) : (e.vis > 0.6 ? 2 : 1);
+    const x0 = Math.round(e.x - w / 2);
+    for (let k = 0; k < w; k++) {
+      put(x0 + k, BODY_Y + 5, 4);
+      const pupil = strain ? k === Math.floor(w / 2) : k === w - 1;
+      put(x0 + k, BODY_Y + 6, pupil ? 5 : 4);
+    }
+  }
+  for (const phi of [-0.98, 0.98]) { const b = face(phi, 0.2); if (b) put(b.x - 0.5, BODY_Y + 7, 6); }
+  const mouth = (o: number, row: number) => { const m = face(Math.asin(o / R)); if (m) put(m.x - 0.5, BODY_Y + row, 5); };
+  if (strain) { for (const o of [-0.5, 0.5]) { mouth(o, 7); mouth(o, 8); } }
+  else { mouth(-1.5, 7); mouth(1.5, 7); mouth(-0.5, 8); mouth(0.5, 8); }
+
+  for (const leg of legs) if (leg.depth >= 0) drawLeg(leg);
+  return grid;
+}
+
 export type SpriteSet = {
   /** walk[gaze][frame] */
   walk: HTMLCanvasElement[][];
@@ -172,6 +277,13 @@ export type SpriteSet = {
   tucked: HTMLCanvasElement[];
   /** unfold[step][frame] — кадры перехода от пучка (шаг 0) к вееру. */
   unfold: HTMLCanvasElement[][];
+  /**
+   * grip[strain][open][step] — поворот крышки щупальцами: step от GRIP_STEPS кадров
+   * провёрнуто влево до вправо; strain — натужное лицо; open — перехват.
+   */
+  grip: HTMLCanvasElement[][][];
+  /** spin[strain][step] — сидит на крышке, повёрнут на step / SPIN_STEPS оборота. */
+  spin: HTMLCanvasElement[][];
   /** reach[0] тянется влево, reach[1] вправо; reach[side][gaze][frame] */
   reach: HTMLCanvasElement[][][];
   /** Занятая рисунком область в клетках (по обычной позе): по ней считаются столкновения. */
@@ -218,8 +330,16 @@ export function buildSprites(cell: number): SpriteSet {
   // не должно отталкивать осьминога от текста.
   const reach = (["reachL", "reachR"] as const).map((mode) =>
     Array.from({ length: GAZES }, (_, g) => frames(mode, g, false)));
+  const grip = (["grip", "gripStrain"] as const).map((mode) => [false, true].map((open) =>
+    Array.from({ length: GRIP_STEPS }, (_, k) => {
+      const sweep = -1 + (2 * k) / (GRIP_STEPS - 1);
+      // Взгляд за крышкой: провернул влево — смотрит влево вниз.
+      return render(buildGrid(k, mode, sweep < 0 ? 2 : 3, 1, { sweep, open }), false);
+    })));
+  const spin = [false, true].map((strain) => Array.from({ length: SPIN_STEPS }, (_, k) =>
+    render(buildSpinGrid((k / SPIN_STEPS) * Math.PI * 2, strain, k % FRAMES), false)));
   return {
-    walk, scared, tucked, unfold, reach, cell, width, height,
+    walk, scared, tucked, unfold, reach, grip, spin, cell, width, height,
     box: { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 },
   };
 }

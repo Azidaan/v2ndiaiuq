@@ -85,7 +85,7 @@ const PARTICLE_LIMIT = 160;
 
 type Rect = { x: number; y: number; w: number; h: number };
 type Particle = {
-  kind: "bubble" | "spark" | "ink";
+  kind: "bubble" | "spark" | "ink" | "drop";        // drop — капли пота
   x: number; y: number; vx: number; vy: number;
   age: number; life: number; seed: number; size: number;
 };
@@ -276,6 +276,15 @@ export function startOctopusPets(): () => void {
         ctx.fillStyle = t < 0.35 ? "#FFFFFF" : "#BFDCFA";
         const c = Math.max(1, Math.round(cell * p.size));
         ctx.fillRect(Math.round(p.x), Math.round(p.y), c, c);
+      } else if (p.kind === "drop") {
+        p.vy += 600 * dt;
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        ctx.globalAlpha = 1 - t * t;
+        const c = Math.max(1, Math.round(cell));
+        ctx.fillStyle = "#9FD3FF";
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), c, c * 2);
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), c, c);
       } else {
         // Тормозят мягче пузырьков — веер успевает широко раскрыться.
         p.vx -= p.vx * 1.6 * dt; p.vy -= p.vy * 1.6 * dt;
@@ -413,13 +422,14 @@ export function startOctopusPets(): () => void {
   const timer = window.setInterval(measure, BUSY_REFRESH_MS);
 
   // ---- рисование осьминога ----
-  const drawAt = (pet: Pet, image: HTMLCanvasElement, shift: number) => {
+  const drawAt = (pet: Pet, image: HTMLCanvasElement, shift: number, sx = 1, sy = 1) => {
     const c = centerOf(pet);
     ctx.save();
     ctx.globalAlpha = pet.alpha;
-    if (pet.angle) {
+    if (pet.angle || sx !== 1 || sy !== 1) {
       ctx.translate(Math.round(c.x + shift), Math.round(c.y));
       ctx.rotate(pet.angle);
+      ctx.scale(sx, sy);
       ctx.drawImage(image, Math.round(pet.x - c.x), Math.round(pet.y - c.y));
     } else {
       ctx.drawImage(image, Math.round(pet.x + shift), Math.round(pet.y));
@@ -574,7 +584,7 @@ export function startOctopusPets(): () => void {
   // ---- сценка с банкой ----
   const jar = createJarScene({
     ctx, pets, sprites: sp, view: () => ({ w: vw, h: vh }), centerOf,
-    drawAt: (pet, image) => drawAt(pet, image, 0),
+    drawAt: (pet, image, sx, sy) => drawAt(pet, image, 0, sx, sy),
     foldImage, addParticle, emitTrail,
     take: (pet) => { endGame(pet); pet.mode = "scripted"; pet.ax = pet.ay = 0; },
     release: (pet) => {
@@ -582,6 +592,10 @@ export function startOctopusPets(): () => void {
       pet.ax = pet.ay = 0;
       pet.cap = Math.max(WANDER_CAP, Math.hypot(pet.vx, pet.vy));
       pet.tx = pet.x; pet.ty = pet.y; pet.idle = rand(1, 2);
+    },
+    launch: (pet, vx, vy) => {
+      pet.mode = "flying"; pet.vx = vx; pet.vy = vy; pet.ax = pet.ay = 0;
+      pet.dizzyUntil = Infinity;                    // приземлится — увидит звёздочки
     },
     spawn: (x, y) => {
       const pet = makePet(0, 0);
@@ -609,6 +623,7 @@ export function startOctopusPets(): () => void {
     updateParticles(dt, s.cell, "ink");
     updateParticles(dt, s.cell, "bubble");
     updateParticles(dt, s.cell, "spark");
+    updateParticles(dt, s.cell, "drop");
     maybeStartGame(now, pointerLive);
 
     // Удары считаем, только если в паре есть летящий: гуляющих и так
