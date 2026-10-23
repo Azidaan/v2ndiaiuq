@@ -2,6 +2,9 @@ import { parseInlineFocus } from "./sanitize";
 import { imageFramingStyle, imageGeometry } from "./imageFraming";
 
 export type PhotoFit = "original" | "contain" | "cover";
+export function inlinePhotoAspectRatio(fit: PhotoFit, width: number, height: number) {
+  return fit !== "cover" && width > 0 && height > 0 ? `${width} / ${height}` : "4 / 3";
+}
 export function photoFit(image: Element): PhotoFit {
   const fit = image.getAttribute("data-fit");
   return fit === "contain" || fit === "cover" ? fit : "original";
@@ -30,6 +33,7 @@ export function applyInlinePhotoPresentation(root: HTMLElement) {
       frame.setAttribute("data-photo-frame", "true");
       image.before(frame); frame.append(image);
     }
+    frame.style.aspectRatio = inlinePhotoAspectRatio(fit, image.naturalWidth, image.naturalHeight);
     Object.assign(image.style, imageFramingStyle({ x: focus.x / 100, y: focus.y / 100, fit, zoom: photoZoom(image) }, imageGeometry(image)));
   }
 }

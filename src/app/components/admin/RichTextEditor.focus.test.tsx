@@ -98,4 +98,23 @@ describe("independent photo focus controls", () => {
     expect(image.style.transformOrigin).toBe("20% 30%");
     expect(photos()[1].style.transform).toBe("");
   });
+  it("keeps a whole square photo square without forcing side gutters in the editor, preview or public article", async () => {
+    const html = initial.replace('data-focus="20 30"', 'data-focus="20 60" data-fit="contain" data-zoom="100"');
+    await mount(html);
+    async function load(image: HTMLImageElement) {
+      await act(async () => {
+        for (const [key, value] of Object.entries({ clientWidth: 300, clientHeight: 300, naturalWidth: 300, naturalHeight: 300 })) Object.defineProperty(image, key, { value, configurable: true });
+        image.dispatchEvent(new Event("load"));
+      });
+    }
+    await load(photos()[0]);
+    expect(photos()[0].parentElement?.style.aspectRatio).toBe("300 / 300");
+    expect(photos()[0].style.transform).toBe("scale(1)");
+    expect((host.querySelector('[aria-label="Предпросмотр фото 1"]') as HTMLElement).style.aspectRatio).toBe("300 / 300");
+    await act(async () => root.render(<SafeHtml html={html} />));
+    const publicImage = host.querySelector<HTMLImageElement>("img")!;
+    await load(publicImage);
+    expect(publicImage.parentElement?.style.aspectRatio).toBe("300 / 300");
+    expect(publicImage.style.transform).toBe("scale(1)");
+  });
 });

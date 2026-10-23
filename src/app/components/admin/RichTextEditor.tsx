@@ -230,6 +230,7 @@ export default function RichTextEditor({
     ...(parseInlineFocus(image.getAttribute("data-focus")) ?? { x: 50, y: 50 }),
     caption: image.closest("figure")?.querySelector("figcaption")?.textContent ?? image.getAttribute("alt") ?? "",
     fit: photoFit(image), zoom: photoZoom(image),
+    naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight,
     cropped: !!image.getAttribute("data-original") && image.getAttribute("data-original") !== image.getAttribute("src"),
   }));
 
@@ -384,6 +385,7 @@ export default function RichTextEditor({
         tabIndex={0}
         spellCheck
         onFocus={() => { editingRef.current = true; }}
+        onLoadCapture={() => refresh((n) => n + 1)}
         onKeyUp={rememberSelection}
         onMouseUp={rememberSelection}
         onClick={(event) => {

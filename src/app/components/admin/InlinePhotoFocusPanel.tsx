@@ -1,9 +1,9 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 import { Crosshair, RotateCcw } from "lucide-react";
-import type { PhotoFit } from "../../lib/inlinePhotoPresentation";
+import { inlinePhotoAspectRatio, type PhotoFit } from "../../lib/inlinePhotoPresentation";
 import FramedImage from "../ui/FramedImage";
 
-export type InlinePhotoFocus = { src: string; x: number; y: number; caption: string; fit: PhotoFit; zoom: number; cropped: boolean };
+export type InlinePhotoFocus = { src: string; x: number; y: number; caption: string; fit: PhotoFit; zoom: number; cropped: boolean; naturalWidth: number; naturalHeight: number };
 const clamp = (value: number) => Math.min(100, Math.max(0, value));
 
 /** Every control addresses its own photo; it does not depend on the editor's selection. */
@@ -58,7 +58,7 @@ export default function InlinePhotoFocusPanel({ photos, disabled, onChange, onSi
             onChange={(event) => onSizeChange(index, event.target.value as PhotoFit, 100)}
             className="min-w-0 flex-1 rounded border border-border bg-card p-1.5">
             <option value="original">Исходные пропорции</option>
-            <option value="contain">Целиком в рамке</option>
+            <option value="contain">Целиком, пропорции фото</option>
             <option value="cover">Заполнить рамку</option>
           </select>
         </label>
@@ -70,14 +70,14 @@ export default function InlinePhotoFocusPanel({ photos, disabled, onChange, onSi
         </label>
         <p className="mb-2 mt-3 text-[11px] font-semibold">2. Так будет выглядеть на сайте</p>
         <div className="relative overflow-hidden rounded border border-border bg-secondary" aria-label={`Предпросмотр фото ${index + 1}`}
-          style={{ aspectRatio: photo.fit === "original" ? undefined : "4 / 3" }}>
+          style={{ aspectRatio: photo.fit === "original" ? undefined : inlinePhotoAspectRatio(photo.fit, photo.naturalWidth, photo.naturalHeight) }}>
           <FramedImage src={photo.src} alt="" className={photo.fit === "original" ? "block h-auto w-full" : "absolute inset-0 block h-full w-full"}
             framing={{ x: photo.x / 100, y: photo.y / 100, fit: photo.fit === "original" ? "contain" : photo.fit, zoom: photo.fit === "original" ? undefined : photo.zoom }} />
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">{photo.fit === "original"
           ? "Фото показывается целиком без рамки. Точка влияет на кадр при обрезке или увеличении."
           : photo.fit === "contain" && photo.zoom <= 100
-            ? "Фото целиком. Точка меняет его положение, если в рамке есть свободное место. Для обрезки выберите «Заполнить рамку» или увеличьте масштаб."
+            ? "Фото сохраняет свои пропорции. При 100% поля не добавляются. Уменьшение масштаба оставляет свободное место."
             : "Кадр обновляется сразу. Если пропорции фото совпадают с рамкой, при 100% обрезки нет."}</p>
         <button type="button" disabled={disabled} onClick={() => onSizeChange(index, "contain", 100)} className="mt-2 text-[11px] text-accent hover:underline">Показать целиком · 100%</button>
         {photo.cropped && <button type="button" disabled={disabled} onClick={() => onRestore(index)} className="mt-2 block text-[11px] text-accent hover:underline">Вернуть исходное фото без обрезки</button>}
