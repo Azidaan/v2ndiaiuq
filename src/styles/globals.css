@@ -116,7 +116,7 @@
     height: auto;
     margin: 1rem 0;
     border-radius: 0.25rem;
-    background: var(--secondary);
+    background: var(--background);
   }
 
   .admin-editor-content img {
@@ -170,7 +170,7 @@
     position: relative;
     aspect-ratio: 4 / 3;
     overflow: hidden;
-    background: var(--secondary);
+    background: var(--background);
     border-radius: 0.25rem;
     max-width: 640px;
   }

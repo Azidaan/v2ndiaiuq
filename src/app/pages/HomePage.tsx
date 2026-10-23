@@ -124,7 +124,7 @@ function HeroSlideCard({ item, slides, activeIndex, exiting = false, wide = fals
         </div>
       </div>
       {item.image && (
-        <div className="aspect-[600/280] w-full shrink-0 self-stretch overflow-hidden bg-secondary sm:w-[600px] sm:max-w-[63%]">
+        <div className="aspect-[600/280] w-full shrink-0 self-stretch overflow-hidden bg-background sm:w-[600px] sm:max-w-[63%]">
           <SafeImage
             src={item.image}
             alt={item.title}
@@ -293,7 +293,7 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
             to={`/news/${item.id}`}
             className="group flex min-w-0 flex-col overflow-hidden rounded border border-border bg-card transition-colors hover:border-accent"
           >
-            <div className="aspect-[2/1] w-full shrink-0 overflow-hidden bg-secondary">
+            <div className="aspect-[2/1] w-full shrink-0 overflow-hidden bg-background">
               {item.image && (
                 <SafeImage
                   src={item.image}

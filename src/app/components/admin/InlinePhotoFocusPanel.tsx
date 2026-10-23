@@ -69,7 +69,7 @@ export default function InlinePhotoFocusPanel({ photos, disabled, onChange, onSi
             className="mt-1 block w-full accent-accent" />
         </label>
         <p className="mb-2 mt-3 text-[11px] font-semibold">2. Так будет выглядеть на сайте</p>
-        <div className="relative overflow-hidden rounded border border-border bg-secondary" aria-label={`Предпросмотр фото ${index + 1}`}
+        <div className="relative overflow-hidden rounded border border-border bg-background" aria-label={`Предпросмотр фото ${index + 1}`}
           style={{ aspectRatio: photo.fit === "original" ? undefined : inlinePhotoAspectRatio(photo.fit, photo.naturalWidth, photo.naturalHeight) }}>
           <FramedImage src={photo.src} alt="" className={photo.fit === "original" ? "block h-auto w-full" : "absolute inset-0 block h-full w-full"}
             framing={{ x: photo.x / 100, y: photo.y / 100, fit: photo.fit === "original" ? "contain" : photo.fit, zoom: photo.fit === "original" ? undefined : photo.zoom }} />

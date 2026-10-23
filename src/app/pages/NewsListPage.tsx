@@ -97,7 +97,7 @@ export default function NewsListPage() {
                 className="bg-card rounded border border-border hover:border-accent hover:shadow-sm group transition-all overflow-hidden flex flex-col"
               >
                 {item.image && (
-                  <div className="h-44 bg-secondary overflow-hidden shrink-0">
+                  <div className="h-44 bg-background overflow-hidden shrink-0">
                     <SafeImage src={item.image} alt={item.title} focus={item.focus} slot="card" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   </div>
                 )}

@@ -65,7 +65,7 @@ export default function ArticlePage() {
             </h1>
 
             {item.image && !item.hideArticleCover && (
-              <div className="mb-6 aspect-[940/480] w-full overflow-hidden rounded bg-secondary">
+              <div className="mb-6 aspect-[940/480] w-full overflow-hidden rounded bg-background">
                 <SafeImage src={item.image} alt={item.title} focus={item.focus} slot="article" className="h-full w-full object-cover" />
               </div>
             )}

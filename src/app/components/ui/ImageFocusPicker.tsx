@@ -56,7 +56,7 @@ export default function ImageFocusPicker({ src, focus, onChange }: {
             <input type="range" min="50" max="200" step="5" aria-label={`Масштаб обложки: ${label}`} value={point.zoom ?? 100} onChange={(event) => change(slot, { zoom: Number(event.target.value) })} className="mt-1 block w-full accent-accent" />
           </label>
           <p className="mb-2 mt-3 text-[11px] font-semibold">2. Так будет выглядеть на сайте</p>
-          <div aria-label={`Предпросмотр обложки: ${label}`} className="relative mt-3 overflow-hidden rounded bg-secondary" style={{ aspectRatio: ratio }}>
+          <div aria-label={`Предпросмотр обложки: ${label}`} className="relative mt-3 overflow-hidden rounded bg-background" style={{ aspectRatio: ratio }}>
             <FramedImage src={src} alt="" className="absolute inset-0 block h-full w-full" framing={resolveFraming(focus, slot)} />
           </div>
           <p className="mt-2 text-[11px] text-muted-foreground">{(point.fit ?? (slot === "tile" ? "contain" : "cover")) === "contain" && (point.zoom ?? 100) <= 100
