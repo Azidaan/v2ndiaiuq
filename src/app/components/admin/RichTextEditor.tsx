@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Bold, Crop, ImagePlus, Italic, List, ListOrdered, RotateCcw, Strikethrough, Trash2, Underline } from "lucide-react";
 import { fileStorage } from "../../lib/fileStorage";
-import { sanitizeHtml } from "../../lib/sanitize";
+import { parseInlineFocus, sanitizeHtml } from "../../lib/sanitize";
 import { imageBlocks, insertImageRow, ensureImageBlock, addBeside, removeImageBlock, separateImageRow } from "../../lib/imageBlocks";
 import InlineImageCropper from "../ui/InlineImageCropper";
+import InlinePhotoFocusPanel from "./InlinePhotoFocusPanel";
+import { applyInlinePhotoPresentation, photoFit, photoZoom, type PhotoFit } from "../../lib/inlinePhotoPresentation";
 
 export default function RichTextEditor({
   value,
@@ -56,8 +58,13 @@ export default function RichTextEditor({
       editorRef.current.innerHTML !== value
     ) {
       editorRef.current.innerHTML = sanitizeHtml(value);
+      refresh((n) => n + 1);
     }
   }, [value]);
+
+  useLayoutEffect(() => {
+    if (editorRef.current) applyInlinePhotoPresentation(editorRef.current);
+  });
 
   function emit() {
     onChange(sanitizeHtml(editorRef.current?.innerHTML ?? ""));
@@ -159,16 +166,30 @@ export default function RichTextEditor({
     return editor.querySelectorAll("img")[selectedIndex] ?? null;
   }
 
-  function applyFocus(event: React.MouseEvent<HTMLDivElement>) {
-    const image = selectedNode();
+  function updatePhotoFocus(index: number, x: number, y: number) {
+    const image = editorRef.current?.querySelectorAll("img")[index];
     if (!image) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = Math.round(Math.min(100, Math.max(0, ((event.clientX - rect.left) / rect.width) * 100)));
-    const y = Math.round(Math.min(100, Math.max(0, ((event.clientY - rect.top) / rect.height) * 100)));
-    image.setAttribute("data-focus", `${x} ${y}`);
-    image.style.objectPosition = `${x}% ${y}%`;
-    setSelectedIndex(selectedIndex);
+    const point = { x: Math.min(100, Math.max(0, x)), y: Math.min(100, Math.max(0, y)) };
+    image.setAttribute("data-focus", `${point.x} ${point.y}`);
+    image.style.objectPosition = `${point.x}% ${point.y}%`;
     emit();
+  }
+
+  function updatePhotoSize(index: number, fit: PhotoFit, zoom: number) {
+    const image = editorRef.current?.querySelectorAll("img")[index];
+    if (!image) return;
+    if (fit === "original") { image.removeAttribute("data-fit"); image.removeAttribute("data-zoom"); }
+    else { image.setAttribute("data-fit", fit); image.setAttribute("data-zoom", String(zoom)); }
+    applyInlinePhotoPresentation(editorRef.current!);
+    emit();
+  }
+
+  function restorePhoto(index: number) {
+    const image = editorRef.current?.querySelectorAll("img")[index];
+    const original = image?.getAttribute("data-original");
+    if (!image || !original) return;
+    image.src = original;
+    updatePhotoSize(index, "contain", 100);
   }
 
   /** Загружает обрезанную копию и подменяет адрес. Оригинал на диске остаётся. */
@@ -201,7 +222,13 @@ export default function RichTextEditor({
 
   const selectedImage = selectedNode();
   const selectedBlock = currentBlock();
-  const focusValue = selectedImage?.getAttribute("data-focus")?.split(/\s+/).map(Number) ?? [50, 50];
+  const photos = [...(editorRef.current?.querySelectorAll("img") ?? [])].map((image) => ({
+    src: image.getAttribute("src") ?? "",
+    ...(parseInlineFocus(image.getAttribute("data-focus")) ?? { x: 50, y: 50 }),
+    caption: image.closest("figure")?.querySelector("figcaption")?.textContent ?? image.getAttribute("alt") ?? "",
+    fit: photoFit(image), zoom: photoZoom(image),
+    cropped: !!image.getAttribute("data-original") && image.getAttribute("data-original") !== image.getAttribute("src"),
+  }));
 
   return (
     <div className="admin-editor">
@@ -296,23 +323,10 @@ export default function RichTextEditor({
           onMouseDown={(event) => event.preventDefault()}
           className="flex flex-wrap items-start gap-3 border-b border-border bg-secondary/40 p-3"
         >
-          <div
-            onClick={applyFocus}
-            role="application"
-            aria-label={`Точка фокуса выбранной картинки: ${focusValue[0]}% на ${focusValue[1]}%`}
-            className="relative w-[150px] shrink-0 cursor-crosshair overflow-hidden rounded border border-border bg-card"
-          >
-            <img src={selectedImage.src} alt="" className="block max-h-[110px] w-full object-contain" />
-            <span
-              aria-hidden="true"
-              style={{ left: `${focusValue[0]}%`, top: `${focusValue[1]}%` }}
-              className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-accent/70 p-1.5 shadow-[0_0_0_1px_rgba(0,0,0,.45)]"
-            />
-          </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-foreground">Картинка в тексте</p>
+            <p className="text-xs font-semibold text-foreground">Выбрано фото {(selectedIndex ?? 0) + 1}</p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Нажмите на важное место — оно останется видимым, если картинка не помещается целиком.
+              Точка фокуса настраивается отдельно для каждой фотографии под полем текста.
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               <button
@@ -405,6 +419,7 @@ export default function RichTextEditor({
         data-placeholder="Введите текст..."
         className={`admin-editor-content ${compact ? "min-h-[150px]" : "min-h-[320px]"}`}
       />
+      <InlinePhotoFocusPanel photos={photos} disabled={uploading} onChange={updatePhotoFocus} onSizeChange={updatePhotoSize} onRestore={restorePhoto} />
     </div>
   );
 }

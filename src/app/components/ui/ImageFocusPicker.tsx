@@ -1,124 +1,64 @@
-import { useRef, type KeyboardEvent, type MouseEvent } from "react";
-import { Crosshair, RotateCcw } from "lucide-react";
-import { DEFAULT_FOCUS, focusPosition, type ImageFocus } from "./SafeImage";
+import type { KeyboardEvent, MouseEvent } from "react";
+import { DEFAULT_FOCUS, framingStyle, type ImageFocus, type ImageFraming, type ImageSlot } from "./SafeImage";
 
-/**
- * Реальные пропорции слотов сайта. Высота у всех одинаковая, ширина считается
- * из пропорции — так видно, какая часть кадра уцелеет в каждом месте.
- */
-const PREVIEW_HEIGHT = 70;
-const PREVIEWS: { label: string; width: number; height: number }[] = [
-  { label: "Слайдер 600×280", width: 600, height: 280 },
-  { label: "В новости 940×480", width: 940, height: 480 },
-  { label: "Карточка новости", width: 400, height: 176 },
-  { label: "Плитка 120×120", width: 120, height: 120 },
+const PREVIEWS: { slot: ImageSlot; label: string; ratio: string }[] = [
+  { slot: "slider", label: "Слайдер", ratio: "600 / 280" },
+  { slot: "article", label: "В новости", ratio: "940 / 480" },
+  { slot: "card", label: "Карточка новости", ratio: "400 / 176" },
+  { slot: "tile", label: "Квадратная плитка", ratio: "1" },
 ];
+const clamp = (value: number) => Math.min(1, Math.max(0, value));
 
-const STEP = 0.02;
-
-/**
- * Выбор точки кадрирования: редактор отмечает важное место на фотографии,
- * и все контейнеры сайта обрезают вокруг него. Обрезать сам файл нельзя —
- * одно фото показывается сразу в нескольких пропорциях.
- */
-export default function ImageFocusPicker({
-  src,
-  focus,
-  onChange,
-}: {
-  src: string;
-  focus?: ImageFocus;
-  onChange: (focus: ImageFocus | undefined) => void;
+export default function ImageFocusPicker({ src, focus, onChange }: {
+  src: string; focus?: ImageFocus; onChange: (focus: ImageFocus | undefined) => void;
 }) {
-  const frameRef = useRef<HTMLDivElement>(null);
-  const point = focus ?? DEFAULT_FOCUS;
-
-  function pick(event: MouseEvent<HTMLDivElement>) {
-    const frame = frameRef.current;
-    if (!frame) return;
-    const rect = frame.getBoundingClientRect();
-    onChange({
-      x: Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)),
-      y: Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height)),
-    });
+  function change(slot: ImageSlot, patch: Partial<ImageFraming>) {
+    const current = focus ?? DEFAULT_FOCUS;
+    const { variants: _, ...base } = current;
+    onChange({ ...current, variants: { ...current.variants, [slot]: { ...(current.variants?.[slot] ?? base), ...patch } } });
   }
-
-  function nudge(event: KeyboardEvent<HTMLDivElement>) {
-    const moves: Record<string, [number, number]> = {
-      ArrowLeft: [-STEP, 0], ArrowRight: [STEP, 0], ArrowUp: [0, -STEP], ArrowDown: [0, STEP],
-    };
-    const move = moves[event.key];
+  function pick(slot: ImageSlot, event: MouseEvent<HTMLButtonElement>) {
+    if (!event.detail) return;
+    const rect = event.currentTarget.querySelector("img")!.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    change(slot, { x: clamp((event.clientX - rect.left) / rect.width), y: clamp((event.clientY - rect.top) / rect.height) });
+  }
+  function nudge(slot: ImageSlot, point: ImageFraming, event: KeyboardEvent<HTMLButtonElement>) {
+    const move = ({ ArrowLeft: [-.02, 0], ArrowRight: [.02, 0], ArrowUp: [0, -.02], ArrowDown: [0, .02], Home: [0, 0] } as Record<string, number[]>)[event.key];
     if (!move) return;
     event.preventDefault();
-    onChange({
-      x: Math.min(1, Math.max(0, point.x + move[0])),
-      y: Math.min(1, Math.max(0, point.y + move[1])),
-    });
+    change(slot, event.key === "Home" ? DEFAULT_FOCUS : { x: clamp(point.x + move[0]), y: clamp(point.y + move[1]) });
   }
-
-  return (
-    <div className="mb-4 rounded border border-border bg-secondary/30 p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-          <Crosshair size={14} aria-hidden="true" /> Точка кадрирования
-        </span>
-        <button
-          type="button"
-          onClick={() => onChange(undefined)}
-          className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
-        >
-          <RotateCcw size={13} aria-hidden="true" /> По умолчанию
-        </button>
-      </div>
-
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <div
-          ref={frameRef}
-          role="application"
-          tabIndex={0}
-          aria-label={`Точка кадрирования: ${Math.round(point.x * 100)}% по горизонтали, ${Math.round(point.y * 100)}% по вертикали. Стрелки сдвигают точку.`}
-          onClick={pick}
-          onKeyDown={nudge}
-          className="relative w-full max-w-[260px] shrink-0 cursor-crosshair overflow-hidden rounded border border-border bg-card focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <img src={src} alt="" className="block max-h-[190px] w-full object-contain" />
-          <span
-            aria-hidden="true"
-            style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }}
-            className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
-          >
-            <span className="block h-5 w-5 rounded-full border-2 border-white bg-accent/70 shadow-[0_0_0_1px_rgba(0,0,0,.45)]" />
-          </span>
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <p className="mb-2 text-xs text-muted-foreground">
-            Нажмите на важное место фотографии — например на лицо. Все размеры на сайте
-            будут обрезаться вокруг этой точки.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            {PREVIEWS.map((preview) => (
-              <span key={preview.label} className="text-center">
-                <span
-                  style={{
-                    height: PREVIEW_HEIGHT,
-                    width: Math.round((PREVIEW_HEIGHT * preview.width) / preview.height),
-                  }}
-                  className="block overflow-hidden rounded border border-border bg-card"
-                >
-                  <img
-                    src={src}
-                    alt=""
-                    style={{ objectPosition: focusPosition(focus) }}
-                    className="h-full w-full object-cover"
-                  />
-                </span>
-                <span className="mt-1 block text-[10px] text-muted-foreground">{preview.label}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
+  return <div className="mb-4 rounded border border-border bg-secondary/30 p-4">
+    <div className="mb-2 flex items-center justify-between gap-2">
+      <span className="text-xs font-semibold">Обложка: отдельный кадр для каждого места</span>
+      <button type="button" onClick={() => onChange(undefined)} className="text-xs text-muted-foreground hover:text-foreground">Сбросить все</button>
     </div>
-  );
+    <p className="mb-3 text-xs text-muted-foreground">У каждого вида своя точка и масштаб. «Целиком» при 100% показывает весь снимок; свободное место заполняется фоном. Сохраните новость, чтобы применить настройки.</p>
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {PREVIEWS.map(({slot, label, ratio}) => {
+        const point = focus?.variants?.[slot] ?? focus ?? DEFAULT_FOCUS;
+        return <div key={slot} className="min-w-0 rounded border border-border bg-card p-3">
+          <p className="mb-2 text-xs font-semibold">{label}</p>
+          <button type="button" aria-label={`Точка кадрирования: ${label}`} onClick={(event) => pick(slot, event)} onKeyDown={(event) => nudge(slot, point, event)}
+            className="relative mx-auto block w-fit max-w-full cursor-crosshair overflow-hidden rounded focus-visible:outline-2 focus-visible:outline-accent">
+            <img src={src} alt="" draggable={false} className="block h-auto max-h-[130px] w-auto max-w-full" />
+            <span aria-hidden="true" style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }} className="pointer-events-none absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-accent/70 shadow" />
+          </button>
+          <label className="mt-3 block text-xs">Вид
+            <select aria-label={`Вид обложки: ${label}`} value={point.fit ?? "cover"} onChange={(event) => change(slot, { fit: event.target.value as "cover" | "contain", zoom: 100 })} className="mt-1 block w-full rounded border border-border bg-card p-1.5">
+              <option value="cover">Заполнить рамку</option><option value="contain">Целиком</option>
+            </select>
+          </label>
+          <label className="mt-3 block text-xs">Масштаб: {point.zoom ?? 100}%
+            <input type="range" min="50" max="200" step="5" aria-label={`Масштаб обложки: ${label}`} value={point.zoom ?? 100} onChange={(event) => change(slot, { zoom: Number(event.target.value) })} className="mt-1 block w-full accent-accent" />
+          </label>
+          <div aria-label={`Предпросмотр обложки: ${label}`} className="mt-3 overflow-hidden rounded bg-secondary" style={{ aspectRatio: ratio }}>
+            <img src={src} alt="" className="block h-full w-full" style={framingStyle(focus, slot)} />
+          </div>
+          <button type="button" onClick={() => change(slot, { fit: "contain", zoom: 100, x: .5, y: .5 })} className="mt-2 text-[11px] text-accent hover:underline">Показать целиком · 100%</button>
+        </div>;
+      })}
+    </div>
+  </div>;
 }

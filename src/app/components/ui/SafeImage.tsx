@@ -2,7 +2,9 @@ import { useEffect, useState, type CSSProperties, type ImgHTMLAttributes } from 
 import { ImageOff } from "lucide-react";
 
 /** Точка фотографии, вокруг которой кадрировать. Доли от ширины и высоты. */
-export type ImageFocus = { x: number; y: number };
+export type ImageSlot = "slider" | "article" | "card" | "tile";
+export type ImageFraming = { x: number; y: number; fit?: "contain" | "cover"; zoom?: number };
+export type ImageFocus = ImageFraming & { variants?: Partial<Record<ImageSlot, ImageFraming>> };
 
 /**
  * По умолчанию кадр смещён вверх, а не по центру: на фотографиях людей головы
@@ -19,7 +21,32 @@ export function parseFocus(raw: unknown): ImageFocus | undefined {
   const { x, y } = raw as Record<string, unknown>;
   if (typeof x !== "number" || typeof y !== "number") return undefined;
   if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
-  return { x: clamp(x), y: clamp(y) };
+  const result: ImageFocus = { x: clamp(x), y: clamp(y) };
+  const record = raw as Record<string, unknown>;
+  if (record.fit === "contain" || record.fit === "cover") result.fit = record.fit;
+  if (typeof record.zoom === "number" && Number.isFinite(record.zoom)) result.zoom = Math.min(200, Math.max(50, record.zoom));
+  if (record.variants && typeof record.variants === "object") {
+    for (const slot of ["slider", "article", "card", "tile"] as const) {
+      const variant = (record.variants as Record<string, unknown>)[slot];
+      if (!variant || typeof variant !== "object") continue;
+      const data = variant as Record<string, unknown>;
+      if (typeof data.x !== "number" || typeof data.y !== "number" || !Number.isFinite(data.x) || !Number.isFinite(data.y)) continue;
+      const framing: ImageFraming = { x: clamp(data.x), y: clamp(data.y) };
+      if (data.fit === "contain" || data.fit === "cover") framing.fit = data.fit;
+      if (typeof data.zoom === "number" && Number.isFinite(data.zoom)) framing.zoom = Math.min(200, Math.max(50, data.zoom));
+      (result.variants ??= {})[slot] = framing;
+    }
+  }
+  return result;
+}
+
+export function framingStyle(focus?: ImageFocus, slot?: ImageSlot): CSSProperties {
+  const framing = (slot && focus?.variants?.[slot]) || focus || DEFAULT_FOCUS;
+  return {
+    objectPosition: focusPosition(framing), objectFit: framing.fit ?? "cover",
+    transform: framing.zoom !== undefined ? `scale(${framing.zoom / 100})` : undefined,
+    transformOrigin: focusPosition(framing),
+  };
 }
 
 export function focusPosition(focus?: ImageFocus): string {
@@ -41,12 +68,14 @@ export default function SafeImage({
   alt,
   className = "",
   focus,
+  slot,
   style,
   ...rest
 }: ImgHTMLAttributes<HTMLImageElement> & {
   src?: string;
   alt: string;
   focus?: ImageFocus;
+  slot?: ImageSlot;
 }) {
   const [failed, setFailed] = useState(false);
 
@@ -65,7 +94,7 @@ export default function SafeImage({
     );
   }
 
-  const merged: CSSProperties = { objectPosition: focusPosition(focus), ...style };
+  const merged: CSSProperties = { ...framingStyle(focus, slot), ...style };
   return (
     <img
       src={src}

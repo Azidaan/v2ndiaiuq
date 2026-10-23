@@ -166,6 +166,21 @@
     font-size: 0.8rem;
   }
   .prose figure[data-image-block]:not(:has(img)) { display: none; }
+  :is(.admin-editor-content, .prose) [data-photo-frame="true"] {
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: var(--secondary);
+    border-radius: 0.25rem;
+    max-width: 640px;
+  }
+  :is(.admin-editor-content, .prose) [data-photo-frame="true"] > img {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    margin: 0;
+    background: transparent;
+  }
   @media (min-width: 640px) {
     :is(.admin-editor-content, .prose) [data-gallery="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     :is(.admin-editor-content, .prose) [data-gallery="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }

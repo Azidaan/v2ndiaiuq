@@ -129,6 +129,7 @@ function HeroSlideCard({ item, slides, activeIndex, exiting = false, wide = fals
             src={item.image}
             alt={item.title}
             focus={item.focus}
+            slot="slider"
             loading="lazy"
             className="h-full w-full object-cover"
           />
@@ -298,6 +299,7 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
                   src={item.image}
                   alt=""
                   focus={item.focus}
+                  slot="tile"
                   loading="lazy"
                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   aria-hidden="true"

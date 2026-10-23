@@ -1,5 +1,6 @@
 import { useEffect, useRef, type HTMLAttributes } from "react";
-import { parseInlineFocus, sanitizeHtml } from "../lib/sanitize";
+import { sanitizeHtml } from "../lib/sanitize";
+import { applyInlinePhotoPresentation } from "../lib/inlinePhotoPresentation";
 
 /**
  * Вывод размеченного текста. Картинки внутри текста могут нести data-focus:
@@ -12,11 +13,7 @@ export default function SafeHtml({ html, ...props }: HTMLAttributes<HTMLDivEleme
   useEffect(() => {
     const root = ref.current;
     if (!root) return;
-    for (const image of root.querySelectorAll("img[data-focus]")) {
-      const focus = parseInlineFocus(image.getAttribute("data-focus"));
-      if (!(image instanceof HTMLImageElement) || !focus) continue;
-      image.style.objectPosition = `${focus.x}% ${focus.y}%`;
-    }
+    applyInlinePhotoPresentation(root);
   }, [html]);
 
   return <div ref={ref} {...props} dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />;
