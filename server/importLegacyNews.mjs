@@ -13,7 +13,11 @@
  * Все перенесённые новости приходят непроверенными — их отмечают в админке.
  */
 import pg from "pg";
-import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, rename, rm } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { databaseConfigFromEnv } from "./database/config.mjs";
@@ -32,7 +36,10 @@ const assets = new Map();
 for (const file of seeds) {
   const data = JSON.parse(await readFile(file, "utf8"));
   items.push(...data.items);
-  for (const a of data.assets) assets.set(a.path, a.url);
+  for (const a of data.assets) {
+    if (assets.has(a.path) && assets.get(a.path) !== a.url) throw new Error(`Конфликт файлов: ${a.path}`);
+    assets.set(a.path, a.url);
+  }
 }
 
 // Защита от случайного содержимого: пишем только в свою папку и только новости.
@@ -52,15 +59,32 @@ const failed = new Set();
 let downloaded = 0;
 const queue = [...assets.entries()];
 await mkdir(join(uploadsRoot, "legacy-news"), { recursive: true });
+async function download(url, target) {
+  for (let attempt = 1; ; attempt++) {
+    const temp = `${target}.part-${randomUUID()}`;
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(120000) });
+      if (!res.ok || res.headers.get("content-type")?.includes("text/html")) {
+        await res.body?.cancel();
+        throw Object.assign(new Error(`${res.status}: файл недоступен`), { permanent: res.status >= 400 && res.status < 500 });
+      }
+      await pipeline(Readable.fromWeb(res.body), createWriteStream(temp));
+      await rename(temp, target);
+      return;
+    } catch (error) {
+      await rm(temp, { force: true });
+      if (error.permanent || attempt === 3) throw error;
+      await new Promise((r) => setTimeout(r, attempt * 1000));
+    }
+  }
+}
 async function worker() {
   for (let next = queue.shift(); next; next = queue.shift()) {
     const [path, url] = next;
     const target = join(uploadsRoot, "legacy-news", basename(path));
     if (await exists(target)) continue;
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(String(res.status));
-      await writeFile(target, Buffer.from(await res.arrayBuffer()));
+      await download(url, target);
       downloaded++;
     } catch (error) {
       failed.add(path);
@@ -82,7 +106,10 @@ try {
   for (const item of items) {
     const { rows } = await client.query("SELECT metadata FROM content_items WHERE slug = $1", [item.slug]);
     const old = rows[0]?.metadata ?? null;
-    const metadata = { ...item.metadata, ...(old?.reviewed ? { reviewed: true } : {}) };
+    const unavailable = [...failed].filter((path) => item.image_url === path || item.body.includes(path));
+    const metadata = { ...item.metadata,
+      ...(unavailable.length ? { legacyAssetFailures: unavailable.map((path) => ({ path, url: assets.get(path) })) } : {}),
+      ...(old?.reviewed ? { reviewed: true } : {}) };
     const values = [item.type, item.title, item.slug, item.summary, dropFailed(item.body), item.category,
       item.published_at, item.status, failed.has(item.image_url) ? "" : item.image_url, item.file_url, metadata];
     if (!old) {
@@ -107,4 +134,4 @@ try {
   client.release();
   await pool.end();
 }
-console.log(JSON.stringify({ status: "ok", news: items.length, inserted, updated, kept, files: assets.size, downloaded, failed: failed.size }));
+console.log(JSON.stringify({ status: "ok", news: items.length, inserted, updated, kept, files: assets.size, downloaded, failed: failed.size, failedAssets: [...failed].map((path) => ({ path, url: assets.get(path) })) }));

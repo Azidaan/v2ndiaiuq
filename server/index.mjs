@@ -17,6 +17,7 @@ import { PgInquiryRepository } from "./inquiries/inquiryRepository.mjs";
 import { InquiryService } from "./inquiries/inquiryService.mjs";
 import { PgAdminUserRepository } from "./users/adminUserRepository.mjs";
 import { AdminUserService } from "./users/adminUserService.mjs";
+import { createLegacyNewsSync } from "./legacyNewsSync.mjs";
 
 const { Pool } = pg;
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -46,6 +47,7 @@ const userService = new AdminUserService({
   rolePolicy,
 });
 const inquiryService = new InquiryService(new PgInquiryRepository(pool));
+let legacyNewsSync;
 
 await app.register(cookie);
 await app.register(multipart, { limits: { fileSize: 20 * 1024 * 1024, files: 1 } });
@@ -150,6 +152,12 @@ app.setErrorHandler((error, _request, reply) => {
 app.get("/api/health", async () => {
   await pool.query("SELECT 1");
   return { status: "ok" };
+});
+
+app.get("/api/admin/legacy-news-sync", { preHandler: [requireAdmin, requirePermission(Permissions.CONTENT_READ)] }, async () => legacyNewsSync.status());
+app.post("/api/admin/legacy-news-sync", { preHandler: [requireAdmin, requirePermission(Permissions.CONTENT_WRITE)] }, async (_request, reply) => {
+  const result = await legacyNewsSync.start("manual");
+  return reply.code(result.started ? 202 : 409).send(result.started ? result : { error: "Перенос уже выполняется" });
 });
 
 app.get("/api/content", async (request) => {
@@ -281,6 +289,16 @@ app.put("/api/admin/content/:id", { preHandler: [requireAdmin, requirePermission
   return publicItem(result.rows[0]);
 });
 
+app.patch("/api/admin/content/:id/review", { preHandler: [requireAdmin, requirePermission(Permissions.CONTENT_WRITE)] }, async (request, reply) => {
+  if (typeof request.body?.reviewed !== "boolean") return reply.code(400).send({ error: "Укажите отметку проверки" });
+  const result = await pool.query(`UPDATE content_items SET
+    metadata = CASE WHEN $2 THEN jsonb_set(metadata, '{reviewed}', 'true'::jsonb) ELSE metadata - 'reviewed' END,
+    updated_at=now() WHERE id=$1 AND type='news' AND metadata->>'importedFrom'='guiaidn.ru' RETURNING *`,
+  [request.params.id, request.body.reviewed]);
+  if (!result.rowCount) return reply.code(404).send({ error: "Перенесённая новость не найдена" });
+  return publicItem(result.rows[0]);
+});
+
 app.post("/api/admin/content/upsert", { preHandler: [requireAdmin, requirePermission(Permissions.CONTENT_WRITE)] }, async (request) => {
   if (!Array.isArray(request.body) || request.body.length > 500) throw Object.assign(new Error("Некорректный пакет материалов"), { statusCode: 400 });
   const client = await pool.connect();
@@ -384,11 +402,13 @@ if (isProduction && existsSync(dist)) {
 
 await migrate();
 await ensureAdmin();
+legacyNewsSync = await createLegacyNewsSync({ pool, root, logger: app.log, enabled: process.env.LEGACY_NEWS_SYNC_ENABLED !== "false" });
 await app.listen({ host: "0.0.0.0", port });
 
 async function shutdown(signal) {
   app.log.info({ signal }, "Shutting down");
   await app.close();
+  await legacyNewsSync.close();
   await pool.end();
   process.exit(0);
 }

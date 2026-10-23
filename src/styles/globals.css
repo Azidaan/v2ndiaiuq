@@ -127,6 +127,50 @@
   .admin-editor-content img:hover {
     outline: 2px solid var(--accent);
   }
+
+  :is(.admin-editor-content, .prose) [data-gallery] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    margin: 1.5rem 0;
+    clear: both;
+  }
+  :is(.admin-editor-content, .prose) [data-gallery] > figure {
+    min-width: 0;
+    margin: 0;
+  }
+  :is(.admin-editor-content, .prose) [data-gallery] img {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    margin: 0;
+  }
+  :is(.admin-editor-content, .prose) [data-gallery] figcaption {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--muted-foreground);
+  }
+  .admin-editor-content figure[data-image-block]:not(:has(img)) {
+    min-height: 180px;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    border: 2px dashed #94a3b8;
+    border-radius: 0.4rem;
+    cursor: pointer;
+  }
+  .admin-editor-content figure[data-image-block]:not(:has(img))::before {
+    content: "Перетащите фото сюда или нажмите для загрузки";
+    color: var(--muted-foreground);
+    text-align: center;
+    font-size: 0.8rem;
+  }
+  .prose figure[data-image-block]:not(:has(img)) { display: none; }
+  @media (min-width: 640px) {
+    :is(.admin-editor-content, .prose) [data-gallery="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    :is(.admin-editor-content, .prose) [data-gallery="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    :is(.admin-editor-content, .prose) [data-gallery="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
 }
 
 @keyframes hero-slide-enter {

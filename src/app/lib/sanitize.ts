@@ -5,7 +5,7 @@ const SANITIZE_OPTIONS = {
     "p", "div", "br", "strong", "b", "em", "i", "u", "s", "strike",
     "ul", "ol", "li", "a", "h2", "h3", "h4", "blockquote", "figure", "figcaption", "img",
   ],
-  ALLOWED_ATTR: ["href", "target", "rel", "src", "alt", "data-focus", "data-original"],
+  ALLOWED_ATTR: ["href", "target", "rel", "src", "alt", "data-focus", "data-original", "data-gallery", "data-image-block"],
   ALLOW_DATA_ATTR: false,
 };
 
@@ -19,7 +19,10 @@ function installHook() {
   // Разрешаем только свои загруженные файлы. Иначе редактор смог бы вставить
   // картинку с чужого сервера, и та превратилась бы в счётчик посещений.
   DOMPurify.addHook("afterSanitizeAttributes", (node) => {
-    if (!(node instanceof Element) || node.tagName !== "IMG") return;
+    if (!(node instanceof Element)) return;
+    if (node.hasAttribute("data-gallery") && (node.tagName !== "DIV" || !/^[1-4]$/.test(node.getAttribute("data-gallery") ?? ""))) node.removeAttribute("data-gallery");
+    if (node.hasAttribute("data-image-block") && (node.tagName !== "FIGURE" || node.getAttribute("data-image-block") !== "true")) node.removeAttribute("data-image-block");
+    if (node.tagName !== "IMG") return;
     const src = node.getAttribute("src") ?? "";
     if (!src.startsWith(UPLOADS_PREFIX) || src.includes("..")) return node.remove();
     const original = node.getAttribute("data-original");

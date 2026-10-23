@@ -14,6 +14,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --prod --frozen-lockfile
 COPY --from=build /app/dist ./dist
 COPY server ./server
+COPY scripts/legacy-news ./scripts/legacy-news
 RUN mkdir -p /app/uploads && chown -R node:node /app
 USER node
 EXPOSE 3001

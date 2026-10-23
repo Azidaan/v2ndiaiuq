@@ -18,7 +18,8 @@
     "db:import-news-2026": "node --env-file-if-exists=.env server/importNews2026.mjs --replace",
     "start": "node --env-file-if-exists=.env server/start.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:sync-legacy-news": "node --env-file-if-exists=.env server/syncLegacyNews.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
@@ -35,7 +36,8 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-router": "7.13.0",
-    "tailwind-merge": "3.2.0"
+    "tailwind-merge": "3.2.0",
+    "jsdom": "^29.1.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
@@ -44,7 +46,6 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "4.7.0",
     "concurrently": "^10.0.3",
-    "jsdom": "^29.1.1",
     "tailwindcss": "4.1.12",
     "typescript": "^6.0.3",
     "vite": "6.3.5",

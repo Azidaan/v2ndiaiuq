@@ -35,6 +35,9 @@ importers:
       fastify:
         specifier: ^5.10.0
         version: 5.10.0
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1
       lucide-react:
         specifier: 0.487.0
         version: 0.487.0(react@18.3.1)
@@ -72,9 +75,6 @@ importers:
       concurrently:
         specifier: ^10.0.3
         version: 10.0.3
-      jsdom:
-        specifier: ^29.1.1
-        version: 29.1.1
       tailwindcss:
         specifier: 4.1.12
         version: 4.1.12

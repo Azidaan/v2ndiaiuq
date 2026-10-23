@@ -1,25 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
-  Bold,
-  Crop,
   ExternalLink,
   FileUp,
   History,
-  ImagePlus,
-  Italic,
-  List,
-  ListOrdered,
   LayoutDashboard,
   LogOut,
   MessageSquare,
   Pencil,
   Plus,
-  RotateCcw,
   Save,
   Star,
-  Strikethrough,
   Trash2,
-  Underline,
   Users,
   X,
 } from "lucide-react";
@@ -44,7 +35,8 @@ import {
   getSeedRows,
 } from "../features/admin/contentConfig";
 import ImageFocusPicker from "../components/ui/ImageFocusPicker";
-import InlineImageCropper from "../components/ui/InlineImageCropper";
+import RichTextEditor from "../components/admin/RichTextEditor";
+import LegacyNewsSyncPanel from "../components/admin/LegacyNewsSyncPanel";
 import { parseFocus } from "../components/ui/SafeImage";
 
 export default function AdminPage() {
@@ -207,13 +199,23 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
   const reviewCount = useMemo(() => items.filter(needsReview).length, [items]);
   const visibleItems = useMemo(() => (onlyReview ? items.filter(needsReview) : items), [items, onlyReview]);
   // После закрытия редактора список возвращается к той же прокрутке, а не в начало.
-  const listScroll = useRef<number | null>(null);
-  const openEditor = (item: ManagedContent) => { listScroll.current = window.scrollY; setEditing(item); };
+  const listScroll = useRef<{ y: number; id: string; offset?: number } | null>(null);
+  const openEditor = (item: ManagedContent) => {
+    const row = document.getElementById(`content-item-${item.id}`);
+    listScroll.current = { y: window.scrollY, id: item.id, offset: row?.getBoundingClientRect().top };
+    setEditing(item);
+  };
+  useEffect(() => { if (editing) window.scrollTo(0, 0); }, [editing]);
   useEffect(() => {
     if (editing || loading || listScroll.current === null) return;
-    const y = listScroll.current;
-    listScroll.current = null;
-    requestAnimationFrame(() => window.scrollTo(0, y));
+    const saved = listScroll.current;
+    let second = 0;
+    const first = requestAnimationFrame(() => { second = requestAnimationFrame(() => {
+      const row = document.getElementById(`content-item-${saved.id}`);
+      const y = row && saved.offset !== undefined ? window.scrollY + row.getBoundingClientRect().top - saved.offset : saved.y;
+      window.scrollTo(0, y); listScroll.current = null;
+    }); });
+    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
   }, [editing, loading]);
 
   /** Отметка «Проверено» прямо из списка, без открытия редактора. */
@@ -222,7 +224,7 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
     const next = { ...item, metadata: reviewed ? { ...rest, reviewed: true } : rest };
     setItems((current) => current.map((entry) => (entry.id === item.id ? next : entry)));
     try {
-      await contentRepository.save(next);
+      await contentRepository.setReviewed(item.id, reviewed);
     } catch (reason) {
       setItems((current) => current.map((entry) => (entry.id === item.id ? item : entry)));
       alert(`Не удалось сохранить отметку: ${reason instanceof Error ? reason.message : "неизвестная ошибка"}`);
@@ -253,14 +255,14 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
     [items, type],
   );
 
-  async function load() {
-    setLoading(true);
+  async function load(background = false) {
+    if (!background) setLoading(true);
     try {
       setItems(await contentRepository.list(type, false));
     } catch (reason) {
       alert(`Не удалось загрузить материалы: ${reason instanceof Error ? reason.message : "неизвестная ошибка"}`);
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
   }
   useEffect(() => {
@@ -354,6 +356,7 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
           </>}
         </nav>
         <section className="min-w-0">
+          {((section === "content" && type === "news") || section === "visual") && <div hidden={Boolean(editing)}><LegacyNewsSyncPanel canWrite={canWrite} onCompleted={() => void load(true)} /></div>}
           {section === "inquiries" && canReadInquiries ? (
             <AdminInquiriesPanel canWrite={canWriteInquiries} canDelete={canDeleteInquiries} />
           ) : section === "users" && canManageUsers ? (
@@ -366,6 +369,7 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
           ) : editing ? (
             <Editor
               initial={editing}
+              onReviewed={(saved) => setItems((current) => current.map((item) => item.id === saved.id ? saved : item))}
               onCancel={() => setEditing(null)}
               onSaved={async () => {
                 setEditing(null);
@@ -425,6 +429,7 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
                   {visibleItems.map((item) => (
                     <div
                       key={item.id}
+                      id={`content-item-${item.id}`}
                       className="flex items-center gap-3 p-4 border-b border-border last:border-0"
                     >
                       <div className="flex-1 min-w-0">
@@ -554,12 +559,15 @@ function Editor({
   initial,
   onCancel,
   onSaved,
+  onReviewed,
 }: {
   initial: ManagedContent;
   onCancel: () => void;
   onSaved: () => void;
+  onReviewed: (item: ManagedContent) => void;
 }) {
   const [form, setForm] = useState(initial);
+  const [reviewBusy, setReviewBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const update = (key: keyof ManagedContent, value: unknown) =>
@@ -569,6 +577,20 @@ function Editor({
       ...current,
       metadata: { ...current.metadata, [key]: value },
     }));
+
+  async function saveReview(checked: boolean) {
+    const previous = Boolean(form.metadata.reviewed);
+    const setFlag = (reviewed: boolean) => setForm((current) => {
+      const { reviewed: _old, ...metadata } = current.metadata;
+      return { ...current, metadata: reviewed ? { ...metadata, reviewed: true } : metadata };
+    });
+    setFlag(checked);
+    if (!form.id) return;
+    setReviewBusy(true);
+    try { onReviewed(await contentRepository.setReviewed(form.id, checked)); }
+    catch (e) { setFlag(previous); setMessage(`Не удалось сохранить отметку: ${e instanceof Error ? e.message : "ошибка сервера"}`); }
+    finally { setReviewBusy(false); }
+  }
 
   async function upload(file: File, target: "image_url" | "file_url") {
     setBusy(true);
@@ -623,6 +645,7 @@ function Editor({
         <button
           type="button"
           onClick={onCancel}
+          disabled={reviewBusy}
           title="Закрыть"
           className="p-2"
         >
@@ -647,23 +670,19 @@ function Editor({
           </p>
           {Boolean(form.metadata.dateApprox) && (
             <p className="mt-1 text-xs text-amber-800">
-              Точной даты на старом сайте не было: стоит первое число месяца из адреса страницы. Уточните дату — пометка снимется.
+              Точный день публикации не указан в источнике. Дата определена приблизительно по адресу или году архива. Уточните дату — пометка снимется.
             </p>
           )}
           <label className="mt-2 flex items-center gap-2 font-medium">
             <input
               type="checkbox"
               checked={Boolean(form.metadata.reviewed)}
-              onChange={(e) => {
-                const checked = e.target.checked;
-                setForm((current) => {
-                  const { reviewed: _reviewed, ...metadata } = current.metadata;
-                  return { ...current, metadata: checked ? { ...metadata, reviewed: true } : metadata };
-                });
-              }}
+              disabled={reviewBusy}
+              onChange={(e) => void saveReview(e.target.checked)}
               className="h-4 w-4 accent-[var(--primary)]"
             />
             Проверено: текст, картинки и дата в порядке
+            <span className="text-xs font-normal text-muted-foreground">{reviewBusy ? "Сохраняем…" : "Отметка сохраняется сразу"}</span>
           </label>
         </div>
       )}
@@ -856,12 +875,25 @@ function Editor({
           onChange={(focus) => updateMetadata("focus", focus)}
         />
       )}
+      {form.type === "news" && (
+        <label className="mt-4 flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.metadata.hideArticleCover === true}
+            onChange={(e) => updateMetadata("hideArticleCover", e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[var(--primary)]"
+          />
+          <span>Скрыть обложку над текстом новости
+            <span className="block text-xs text-muted-foreground">Изображение останется в карточках и слайдере. Подходит, если полная картинка уже есть в тексте.</span>
+          </span>
+        </label>
+      )}
       {message && (
         <p className="text-sm text-muted-foreground mt-3">{message}</p>
       )}
       <div className="flex gap-3 mt-5">
         <button
-          disabled={busy}
+          disabled={busy || reviewBusy}
           className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded text-sm disabled:opacity-50"
         >
           <Save size={16} /> Сохранить
@@ -1172,326 +1204,5 @@ function CategoryInput({
         </option>
       ))}
     </select>
-  );
-}
-
-function RichTextEditor({
-  value,
-  onChange,
-  compact = false,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  compact?: boolean;
-}) {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const editingRef = useRef(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  // Позиция курсора на момент нажатия кнопки: загрузка файла асинхронная,
-  // и к её концу выделение в редакторе уже потеряно.
-  const savedRangeRef = useRef<Range | null>(null);
-  // Держим не сам узел, а его номер: onBlur пересобирает innerHTML, и прямая
-  // ссылка после этого указывает на отсоединённый элемент.
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [cropping, setCropping] = useState(false);
-  const [uploading, setUploading] = useState(false);
-
-  function rememberSelection() {
-    const editor = editorRef.current;
-    const selection = window.getSelection();
-    if (!editor || !selection || selection.rangeCount === 0) return;
-    const range = selection.getRangeAt(0);
-    if (!editor.contains(range.commonAncestorContainer)) return;
-    savedRangeRef.current = range.cloneRange();
-  }
-
-  /** Возвращает диапазон вставки: сохранённый курсор либо конец текста. */
-  function insertionRange(editor: HTMLDivElement) {
-    const saved = savedRangeRef.current;
-    if (saved && editor.contains(saved.commonAncestorContainer)) return saved;
-    const range = document.createRange();
-    range.selectNodeContents(editor);
-    range.collapse(false);
-    return range;
-  }
-
-  useEffect(() => {
-    if (
-      editorRef.current &&
-      !editingRef.current &&
-      editorRef.current.innerHTML !== value
-    ) {
-      editorRef.current.innerHTML = sanitizeHtml(value);
-    }
-  }, [value]);
-
-  function emit() {
-    onChange(sanitizeHtml(editorRef.current?.innerHTML ?? ""));
-  }
-
-  function format(command: string) {
-    editorRef.current?.focus();
-    document.execCommand(command);
-    emit();
-  }
-
-  /** Загружает файл и вставляет картинку в место курсора. */
-  async function insertImage(file: File) {
-    if (!file.type.startsWith("image/")) return;
-    setUploading(true);
-    try {
-      const url = await fileStorage.upload("inline", file);
-      const editor = editorRef.current;
-      if (!editor) return;
-      editor.focus();
-      const image = document.createElement("img");
-      image.src = url;
-      image.alt = "";
-      // data-focus задаёт видимую часть, если картинка не влезает в кадр.
-      image.setAttribute("data-focus", "50 50");
-      // Оригинал запоминаем сразу: обрезка подменяет src, и без этой ссылки
-      // повторная обрезка резала бы уже урезанную копию.
-      image.setAttribute("data-original", url);
-
-      const range = insertionRange(editor);
-      range.deleteContents();
-      range.insertNode(image);
-
-      // Курсор ставим за картинкой, чтобы можно было продолжать печатать.
-      const after = document.createRange();
-      after.setStartAfter(image);
-      after.collapse(true);
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(after);
-      savedRangeRef.current = after.cloneRange();
-      emit();
-    } catch (reason) {
-      alert(`Не удалось загрузить картинку: ${reason instanceof Error ? reason.message : "неизвестная ошибка"}`);
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  /** Находит выбранную картинку в живом DOM по её номеру. */
-  function selectedNode(): HTMLImageElement | null {
-    const editor = editorRef.current;
-    if (!editor || selectedIndex === null) return null;
-    return editor.querySelectorAll("img")[selectedIndex] ?? null;
-  }
-
-  function applyFocus(event: React.MouseEvent<HTMLDivElement>) {
-    const image = selectedNode();
-    if (!image) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = Math.round(Math.min(100, Math.max(0, ((event.clientX - rect.left) / rect.width) * 100)));
-    const y = Math.round(Math.min(100, Math.max(0, ((event.clientY - rect.top) / rect.height) * 100)));
-    image.setAttribute("data-focus", `${x} ${y}`);
-    image.style.objectPosition = `${x}% ${y}%`;
-    setSelectedIndex(selectedIndex);
-    emit();
-  }
-
-  /** Загружает обрезанную копию и подменяет адрес. Оригинал на диске остаётся. */
-  async function applyCrop(blob: Blob) {
-    const image = selectedNode();
-    if (!image) return;
-    setUploading(true);
-    try {
-      const file = new File([blob], `crop-${Date.now()}.jpg`, { type: "image/jpeg" });
-      const original = image.getAttribute("data-original") || image.getAttribute("src") || "";
-      image.src = await fileStorage.upload("inline", file);
-      if (original) image.setAttribute("data-original", original);
-      setCropping(false);
-      emit();
-    } catch (reason) {
-      alert(`Не удалось сохранить обрезку: ${reason instanceof Error ? reason.message : "неизвестная ошибка"}`);
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  const controls = [
-    { command: "bold", label: "Жирный", Icon: Bold },
-    { command: "italic", label: "Курсив", Icon: Italic },
-    { command: "underline", label: "Подчеркнуть", Icon: Underline },
-    { command: "strikeThrough", label: "Зачеркнуть", Icon: Strikethrough },
-    { command: "insertUnorderedList", label: "Маркированный список", Icon: List },
-    { command: "insertOrderedList", label: "Нумерованный список", Icon: ListOrdered },
-  ];
-
-  const selectedImage = selectedNode();
-  const focusValue = selectedImage?.getAttribute("data-focus")?.split(/\s+/).map(Number) ?? [50, 50];
-
-  return (
-    <div className="admin-editor">
-      <div
-        className="admin-editor-toolbar"
-        role="toolbar"
-        aria-label="Форматирование текста"
-      >
-        {controls.map(({ command, label, Icon }) => (
-          <button
-            key={command}
-            type="button"
-            title={label}
-            aria-label={label}
-            onMouseDown={(event) => {
-              event.preventDefault();
-              format(command);
-            }}
-          >
-            <Icon size={16} />
-          </button>
-        ))}
-        <button
-          type="button"
-          title={uploading ? "Загружаем..." : "Вставить изображение"}
-          aria-label="Вставить изображение"
-          disabled={uploading}
-          // preventDefault не даёт редактору потерять фокус, поэтому курсор
-          // остаётся там, куда пользователь его поставил.
-          onMouseDown={(event) => {
-            event.preventDefault();
-            rememberSelection();
-          }}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <ImagePlus size={16} />
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          className="sr-only"
-          onChange={async (event) => {
-            const files = [...(event.target.files ?? [])];
-            event.target.value = "";
-            for (const file of files) await insertImage(file);
-          }}
-        />
-      </div>
-
-      {selectedImage && cropping && (
-        <InlineImageCropper
-          src={selectedImage.getAttribute("data-original") || selectedImage.src}
-          busy={uploading}
-          onCancel={() => setCropping(false)}
-          onApply={(blob) => void applyCrop(blob)}
-        />
-      )}
-
-      {selectedImage && !cropping && (
-        <div
-          // Без этого клик по панели уводит фокус, срабатывает onBlur и
-          // пересобирает содержимое — выбранная картинка становится чужим узлом.
-          onMouseDown={(event) => event.preventDefault()}
-          className="flex flex-wrap items-start gap-3 border-b border-border bg-secondary/40 p-3"
-        >
-          <div
-            onClick={applyFocus}
-            role="application"
-            aria-label={`Точка фокуса выбранной картинки: ${focusValue[0]}% на ${focusValue[1]}%`}
-            className="relative w-[150px] shrink-0 cursor-crosshair overflow-hidden rounded border border-border bg-card"
-          >
-            <img src={selectedImage.src} alt="" className="block max-h-[110px] w-full object-contain" />
-            <span
-              aria-hidden="true"
-              style={{ left: `${focusValue[0]}%`, top: `${focusValue[1]}%` }}
-              className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-accent/70 p-1.5 shadow-[0_0_0_1px_rgba(0,0,0,.45)]"
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-foreground">Картинка в тексте</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Нажмите на важное место — оно останется видимым, если картинка не помещается целиком.
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setCropping(true)}
-                className="inline-flex items-center gap-1 rounded border border-accent px-2 py-1 text-[11px] text-accent hover:bg-accent hover:text-accent-foreground"
-              >
-                <Crop size={12} aria-hidden="true" /> Обрезать
-              </button>
-              {selectedImage.getAttribute("data-original") &&
-                selectedImage.getAttribute("data-original") !== selectedImage.getAttribute("src") && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const image = selectedNode();
-                    const original = image?.getAttribute("data-original");
-                    if (!image || !original) return;
-                    image.src = original;
-                    emit();
-                  }}
-                  className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:border-accent"
-                >
-                  <RotateCcw size={12} aria-hidden="true" /> Вернуть оригинал
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => { selectedImage.remove(); setSelectedIndex(null); emit(); }}
-                className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-red-600 hover:border-red-400"
-              >
-                <Trash2 size={12} aria-hidden="true" /> Удалить картинку
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedIndex(null)}
-                className="rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:border-accent"
-              >
-                Готово
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        role="textbox"
-        aria-multiline="true"
-        tabIndex={0}
-        spellCheck
-        onFocus={() => { editingRef.current = true; }}
-        onKeyUp={rememberSelection}
-        onMouseUp={rememberSelection}
-        onClick={(event) => {
-          rememberSelection();
-          const target = event.target as HTMLElement;
-          if (!(target instanceof HTMLImageElement) || !editorRef.current) {
-            setSelectedIndex(null);
-            setCropping(false);
-            return;
-          }
-          setSelectedIndex([...editorRef.current.querySelectorAll("img")].indexOf(target));
-          setCropping(false);
-        }}
-        onPaste={(event) => {
-          rememberSelection();
-          // Скриншот из буфера иначе попал бы в базу строкой base64 на мегабайты.
-          const file = [...event.clipboardData.items]
-            .find((entry) => entry.kind === "file" && entry.type.startsWith("image/"))
-            ?.getAsFile();
-          if (!file) return;
-          event.preventDefault();
-          void insertImage(file);
-        }}
-        onBlur={(event) => {
-          editingRef.current = false;
-          const normalized = sanitizeHtml(event.currentTarget.innerHTML);
-          if (event.currentTarget.innerHTML !== normalized) event.currentTarget.innerHTML = normalized;
-          onChange(normalized);
-        }}
-        onInput={(event) => onChange(sanitizeHtml(event.currentTarget.innerHTML))}
-        data-placeholder="Введите текст..."
-        className={`admin-editor-content ${compact ? "min-h-[150px]" : "min-h-[320px]"}`}
-      />
-    </div>
   );
 }

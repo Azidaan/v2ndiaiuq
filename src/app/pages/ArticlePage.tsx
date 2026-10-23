@@ -6,6 +6,7 @@ import { useManagedContent } from "../lib/content";
 import type { NewsCategory } from "../data";
 import SafeHtml from "../components/SafeHtml";
 import SafeImage, { parseFocus, type ImageFocus } from "../components/ui/SafeImage";
+import { htmlToPlainText } from "../lib/sanitize";
 
 export default function ArticlePage() {
   const { id } = useParams<{ id: string }>();
@@ -16,7 +17,8 @@ export default function ArticlePage() {
     excerpt: entry.summary, body: entry.body, image: entry.image_url || undefined,
     tags: (entry.metadata.tags as string[] | undefined) ?? [],
     focus: parseFocus(entry.metadata.focus),
-  })) : NEWS.map((entry) => ({ ...entry, focus: undefined as ImageFocus | undefined }));
+    hideArticleCover: entry.metadata.hideArticleCover === true,
+  })) : NEWS.map((entry) => ({ ...entry, focus: undefined as ImageFocus | undefined, hideArticleCover: false }));
   const item = news.find((n) => n.id === id);
 
   if (loading && !item) return <div className="max-w-[1280px] mx-auto px-4 py-16 text-center text-muted-foreground">Загрузка...</div>;
@@ -31,6 +33,8 @@ export default function ArticlePage() {
   }
 
   const related = news.filter((n) => n.id !== item.id && n.category === item.category).slice(0, 3);
+  const intro = htmlToPlainText(item.excerpt).replace(/…$/, "").trim();
+  const showIntro = intro && intro !== item.title && !htmlToPlainText(item.body).startsWith(intro);
 
   return (
     <div style={{ fontFamily: "var(--font-body)" }}>
@@ -60,14 +64,14 @@ export default function ArticlePage() {
               {item.title}
             </h1>
 
-            {item.image && (
+            {item.image && !item.hideArticleCover && (
               <div className="mb-6 aspect-[940/480] w-full overflow-hidden rounded bg-secondary">
                 <SafeImage src={item.image} alt={item.title} focus={item.focus} className="h-full w-full object-cover" />
               </div>
             )}
 
             <div className="prose prose-sm max-w-none text-foreground leading-relaxed">
-              <SafeHtml html={item.excerpt} className="text-base font-medium mb-4" />
+              {showIntro && <SafeHtml html={item.excerpt} className="text-base font-medium mb-4" />}
               <SafeHtml html={item.body} />
             </div>
 
