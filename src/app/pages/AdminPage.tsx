@@ -434,7 +434,17 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
                     >
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">
-                          {item.title}
+                          {item.type === "news" && item.slug ? (
+                            <a
+                              href={`/news/${encodeURIComponent(item.slug)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Открыть новость на новом сайте (в новой вкладке)"
+                              className="text-accent hover:underline focus-visible:underline focus-visible:outline-2 focus-visible:outline-accent"
+                            >
+                              {item.title}
+                            </a>
+                          ) : item.title}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           {new Date(item.published_at).toLocaleDateString(
