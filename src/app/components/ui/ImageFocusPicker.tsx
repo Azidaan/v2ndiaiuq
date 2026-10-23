@@ -1,5 +1,6 @@
 import type { KeyboardEvent, MouseEvent } from "react";
-import { DEFAULT_FOCUS, framingStyle, type ImageFocus, type ImageFraming, type ImageSlot } from "./SafeImage";
+import { DEFAULT_FOCUS, resolveFraming, type ImageFocus, type ImageFraming, type ImageSlot } from "./SafeImage";
+import FramedImage from "./FramedImage";
 
 const PREVIEWS: { slot: ImageSlot; label: string; ratio: string }[] = [
   { slot: "slider", label: "Слайдер", ratio: "600 / 280" },
@@ -55,8 +56,8 @@ export default function ImageFocusPicker({ src, focus, onChange }: {
             <input type="range" min="50" max="200" step="5" aria-label={`Масштаб обложки: ${label}`} value={point.zoom ?? 100} onChange={(event) => change(slot, { zoom: Number(event.target.value) })} className="mt-1 block w-full accent-accent" />
           </label>
           <p className="mb-2 mt-3 text-[11px] font-semibold">2. Так будет выглядеть на сайте</p>
-          <div aria-label={`Предпросмотр обложки: ${label}`} className="mt-3 overflow-hidden rounded bg-secondary" style={{ aspectRatio: ratio }}>
-            <img src={src} alt="" className="block h-full w-full" style={framingStyle(focus, slot)} />
+          <div aria-label={`Предпросмотр обложки: ${label}`} className="relative mt-3 overflow-hidden rounded bg-secondary" style={{ aspectRatio: ratio }}>
+            <FramedImage src={src} alt="" className="absolute inset-0 block h-full w-full" framing={resolveFraming(focus, slot)} />
           </div>
           <p className="mt-2 text-[11px] text-muted-foreground">{(point.fit ?? (slot === "tile" ? "contain" : "cover")) === "contain" && (point.zoom ?? 100) <= 100
             ? "Фото целиком. Точка меняет положение в свободном пространстве рамки."

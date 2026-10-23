@@ -1,6 +1,7 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 import { Crosshair, RotateCcw } from "lucide-react";
 import type { PhotoFit } from "../../lib/inlinePhotoPresentation";
+import FramedImage from "../ui/FramedImage";
 
 export type InlinePhotoFocus = { src: string; x: number; y: number; caption: string; fit: PhotoFit; zoom: number; cropped: boolean };
 const clamp = (value: number) => Math.min(100, Math.max(0, value));
@@ -68,10 +69,10 @@ export default function InlinePhotoFocusPanel({ photos, disabled, onChange, onSi
             className="mt-1 block w-full accent-accent" />
         </label>
         <p className="mb-2 mt-3 text-[11px] font-semibold">2. Так будет выглядеть на сайте</p>
-        <div className="overflow-hidden rounded border border-border bg-secondary" aria-label={`Предпросмотр фото ${index + 1}`}
+        <div className="relative overflow-hidden rounded border border-border bg-secondary" aria-label={`Предпросмотр фото ${index + 1}`}
           style={{ aspectRatio: photo.fit === "original" ? undefined : "4 / 3" }}>
-          <img src={photo.src} alt="" className={photo.fit === "original" ? "block h-auto w-full" : "block h-full w-full"}
-            style={{ objectFit: photo.fit === "original" ? "contain" : photo.fit, objectPosition: `${photo.x}% ${photo.y}%`, transform: photo.fit === "original" ? undefined : `scale(${photo.zoom / 100})`, transformOrigin: `${photo.x}% ${photo.y}%` }} />
+          <FramedImage src={photo.src} alt="" className={photo.fit === "original" ? "block h-auto w-full" : "absolute inset-0 block h-full w-full"}
+            framing={{ x: photo.x / 100, y: photo.y / 100, fit: photo.fit === "original" ? "contain" : photo.fit, zoom: photo.fit === "original" ? undefined : photo.zoom }} />
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">{photo.fit === "original"
           ? "Фото показывается целиком без рамки. Точка влияет на кадр при обрезке или увеличении."

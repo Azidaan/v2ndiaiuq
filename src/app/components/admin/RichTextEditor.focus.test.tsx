@@ -86,4 +86,16 @@ describe("independent photo focus controls", () => {
     const clean = sanitizeHtml('<div data-photo-frame="wrong"><img src="/uploads/a.jpg" data-fit="evil" data-zoom="999" style="position:fixed"></div>');
     expect(clean).not.toMatch(/data-fit|data-zoom|data-photo-frame|style=/);
   });
+  it("recalculates inline source scaling after the original file loads", async () => {
+    await mount(initial.replace('data-focus="20 30"', 'data-focus="20 30" data-fit="cover" data-zoom="80"'));
+    const image = photos()[0];
+    await act(async () => {
+      for (const [key, value] of Object.entries({ clientWidth: 200, clientHeight: 200, naturalWidth: 1000, naturalHeight: 500 })) Object.defineProperty(image, key, { value, configurable: true });
+      image.dispatchEvent(new Event("load"));
+    });
+    expect(image.style.objectFit).toBe("contain");
+    expect(image.style.transform).toBe("scale(1.6)");
+    expect(image.style.transformOrigin).toBe("20% 30%");
+    expect(photos()[1].style.transform).toBe("");
+  });
 });

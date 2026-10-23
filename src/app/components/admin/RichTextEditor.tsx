@@ -5,7 +5,7 @@ import { parseInlineFocus, sanitizeHtml } from "../../lib/sanitize";
 import { imageBlocks, insertImageRow, ensureImageBlock, addBeside, removeImageBlock, separateImageRow } from "../../lib/imageBlocks";
 import InlineImageCropper from "../ui/InlineImageCropper";
 import InlinePhotoFocusPanel from "./InlinePhotoFocusPanel";
-import { applyInlinePhotoPresentation, photoFit, photoZoom, type PhotoFit } from "../../lib/inlinePhotoPresentation";
+import { applyInlinePhotoPresentation, observeInlinePhotoPresentation, photoFit, photoZoom, type PhotoFit } from "../../lib/inlinePhotoPresentation";
 
 export default function RichTextEditor({
   value,
@@ -63,7 +63,10 @@ export default function RichTextEditor({
   }, [value]);
 
   useLayoutEffect(() => {
-    if (editorRef.current) applyInlinePhotoPresentation(editorRef.current);
+    const editor = editorRef.current;
+    if (!editor) return;
+    applyInlinePhotoPresentation(editor);
+    return observeInlinePhotoPresentation(editor);
   });
 
   function emit() {

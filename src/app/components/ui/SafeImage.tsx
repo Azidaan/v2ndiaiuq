@@ -1,5 +1,7 @@
 import { useEffect, useState, type CSSProperties, type ImgHTMLAttributes } from "react";
 import { ImageOff } from "lucide-react";
+import FramedImage from "./FramedImage";
+import { imageFramingStyle } from "../../lib/imageFraming";
 
 /** Точка фотографии, вокруг которой кадрировать. Доли от ширины и высоты. */
 export type ImageSlot = "slider" | "article" | "card" | "tile";
@@ -40,13 +42,13 @@ export function parseFocus(raw: unknown): ImageFocus | undefined {
   return result;
 }
 
-export function framingStyle(focus?: ImageFocus, slot?: ImageSlot): CSSProperties {
+export function resolveFraming(focus?: ImageFocus, slot?: ImageSlot): ImageFraming {
   const framing = (slot && focus?.variants?.[slot]) || focus || DEFAULT_FOCUS;
-  return {
-    objectPosition: focusPosition(framing), objectFit: framing.fit ?? (slot === "tile" ? "contain" : "cover"),
-    transform: framing.zoom !== undefined ? `scale(${framing.zoom / 100})` : undefined,
-    transformOrigin: focusPosition(framing),
-  };
+  return { ...framing, fit: framing.fit ?? (slot === "tile" ? "contain" : "cover") };
+}
+
+export function framingStyle(focus?: ImageFocus, slot?: ImageSlot): CSSProperties {
+  return imageFramingStyle(resolveFraming(focus, slot));
 }
 
 export function focusPosition(focus?: ImageFocus): string {
@@ -94,13 +96,13 @@ export default function SafeImage({
     );
   }
 
-  const merged: CSSProperties = { ...framingStyle(focus, slot), ...style };
   return (
-    <img
+    <FramedImage
       src={src}
       alt={alt}
       className={className}
-      style={merged}
+      framing={resolveFraming(focus, slot)}
+      style={style}
       onError={() => setFailed(true)}
       {...rest}
     />

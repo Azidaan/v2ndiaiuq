@@ -27,7 +27,7 @@ describe("independent cover frames", () => {
       expect(framingStyle(restored, "article").objectFit).toBe("cover");
       await act(async () => root.render(<><SafeImage src="/uploads/a.jpg" alt="tile" slot="tile" focus={restored} /><SafeImage src="/uploads/a.jpg" alt="slider" slot="slider" focus={restored} /></>));
       expect(host.querySelector<HTMLImageElement>('img[alt="tile"]')?.style.objectFit).toBe("contain");
-      expect(host.querySelector<HTMLImageElement>('img[alt="slider"]')?.style.objectPosition).toBe("52.0% 30.0%");
+      expect(host.querySelector<HTMLImageElement>('img[alt="slider"]')?.style.objectPosition).toBe("52% 30%");
     } finally { await act(async () => root.unmount()); host.remove(); }
   });
   it("retains legacy points and rejects invalid variants and scales", () => {
@@ -36,5 +36,25 @@ describe("independent cover frames", () => {
     expect(focus?.variants?.tile).toEqual({ x: 1, y: 0, zoom: 200, fit: "contain" });
     expect(focus?.variants?.card).toBeUndefined();
     expect(framingStyle(focus, "tile").transform).toBe("scale(2)");
+  });
+  it("uses the entire source at 80% in both admin preview and public image after loading", async () => {
+    const host = document.createElement("div"); document.body.append(host);
+    const root = createRoot(host);
+    const focus: ImageFocus = { x: .5, y: .5, variants: { slider: { x: .5, y: .5, fit: "cover", zoom: 80 } } };
+    try {
+      await act(async () => root.render(<><ImageFocusPicker src="/uploads/a.jpg" focus={focus} onChange={() => {}} /><SafeImage src="/uploads/a.jpg" alt="public" focus={focus} slot="slider" /></>));
+      const images = [host.querySelector<HTMLImageElement>('[aria-label="Предпросмотр обложки: Слайдер"] img')!, host.querySelector<HTMLImageElement>('img[alt="public"]')!];
+      await act(async () => {
+        for (const image of images) {
+          for (const [key, value] of Object.entries({ clientWidth: 200, clientHeight: 200, naturalWidth: 1000, naturalHeight: 500 })) Object.defineProperty(image, key, { value, configurable: true });
+          image.dispatchEvent(new Event("load"));
+        }
+      });
+      for (const image of images) {
+        expect(image.style.objectFit).toBe("contain");
+        expect(image.style.transform).toBe("scale(1.6)");
+        expect(image.style.objectPosition).toBe("50% 50%");
+      }
+    } finally { await act(async () => root.unmount()); host.remove(); }
   });
 });

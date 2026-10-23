@@ -1,4 +1,5 @@
 import { parseInlineFocus } from "./sanitize";
+import { imageFramingStyle, imageGeometry } from "./imageFraming";
 
 export type PhotoFit = "original" | "contain" | "cover";
 export function photoFit(image: Element): PhotoFit {
@@ -29,8 +30,16 @@ export function applyInlinePhotoPresentation(root: HTMLElement) {
       frame.setAttribute("data-photo-frame", "true");
       image.before(frame); frame.append(image);
     }
-    image.style.objectFit = fit;
-    image.style.transform = `scale(${photoZoom(image) / 100})`;
-    image.style.transformOrigin = `${focus.x}% ${focus.y}%`;
+    Object.assign(image.style, imageFramingStyle({ x: focus.x / 100, y: focus.y / 100, fit, zoom: photoZoom(image) }, imageGeometry(image)));
   }
+}
+
+/** Recalculate from the source when it loads or the responsive frame changes size. */
+export function observeInlinePhotoPresentation(root: HTMLElement) {
+  const update = () => applyInlinePhotoPresentation(root);
+  root.addEventListener("load", update, true);
+  const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+  observer?.observe(root);
+  for (const image of root.querySelectorAll("img")) observer?.observe(image);
+  return () => { root.removeEventListener("load", update, true); observer?.disconnect(); };
 }
