@@ -255,7 +255,7 @@ function HeroSlider({ news, blocks }: { news: HomeNewsItem[]; blocks: Record<str
 
 function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
   const [active, setActive] = useState(0);
-  const visibleCount = Math.min(4, news.length);
+  const visibleCount = Math.min(3, news.length);
   const visibleNews = news.length > 0 ? Array.from({ length: visibleCount }, (_, index) => news[(active + index) % news.length]) : [];
 
   return (
@@ -286,14 +286,14 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {visibleNews.map((item) => (
           <Link
             key={`${active}-${item.id}`}
             to={`/news/${item.id}`}
-            className="group flex gap-3 overflow-hidden rounded border border-border bg-card p-3 transition-colors hover:border-accent"
+            className="group flex min-w-0 flex-col overflow-hidden rounded border border-border bg-card transition-colors hover:border-accent"
           >
-            <div className="h-[120px] w-[120px] shrink-0 overflow-hidden rounded bg-secondary">
+            <div className="aspect-[2/1] w-full shrink-0 overflow-hidden bg-secondary">
               {item.image && (
                 <SafeImage
                   src={item.image}
@@ -301,14 +301,14 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
                   focus={item.focus}
                   slot="tile"
                   loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className="h-full w-full"
                   aria-hidden="true"
                 />
               )}
             </div>
-            <div className="min-w-0">
-              <p className="mb-0.5 text-[10px] text-muted-foreground">{formatDate(item.date)}</p>
-              <p className="text-[12px] leading-snug text-foreground transition-colors group-hover:text-accent line-clamp-4">
+            <div className="min-w-0 p-4">
+              <p className="mb-1.5 text-xs text-muted-foreground">{formatDate(item.date)}</p>
+              <p className="text-sm leading-snug text-foreground transition-colors group-hover:text-accent line-clamp-3">
                 {item.title}
               </p>
             </div>

@@ -26,8 +26,10 @@ describe("independent photo focus controls", () => {
   it("changes a photo without selecting it and retains both points after save/reopen", async () => {
     await mount();
     expect(pickers()).toHaveLength(2);
+    expect(host.querySelectorAll('[aria-label^="Предпросмотр фото"]')).toHaveLength(2);
     await act(async () => { pickers()[1].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })); });
     expect(photos().map((img) => img.getAttribute("data-focus"))).toEqual(["20 30", "72 80"]);
+    expect(host.querySelector<HTMLImageElement>('[aria-label="Предпросмотр фото 2"] img')?.style.objectPosition).toBe("72% 80%");
     await act(async () => { pickers()[0].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })); });
     expect(photos().map((img) => img.getAttribute("data-focus"))).toEqual(["20 32", "72 80"]);
     const persisted = saved;

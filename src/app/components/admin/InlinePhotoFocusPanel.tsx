@@ -42,6 +42,7 @@ export default function InlinePhotoFocusPanel({ photos, disabled, onChange, onSi
           <span className="inline-flex items-center gap-1 text-xs font-semibold"><Crosshair size={13} aria-hidden="true" /> Фото {index + 1}</span>
           <button type="button" disabled={disabled} aria-label={`Сбросить точку фокуса фото ${index + 1}`} onClick={() => onChange(index, 50, 50)} className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50"><RotateCcw size={12} aria-hidden="true" /> В центр</button>
         </div>
+        <p className="mb-2 text-[11px] font-medium text-muted-foreground">1. Выберите точку на исходном фото</p>
         <button type="button" disabled={disabled}
           aria-label={`Точка фокуса фото ${index + 1}: ${photo.x}% по горизонтали, ${photo.y}% по вертикали`}
           onMouseDown={(event) => event.preventDefault()}
@@ -66,9 +67,17 @@ export default function InlinePhotoFocusPanel({ photos, disabled, onChange, onSi
             onChange={(event) => onSizeChange(index, photo.fit === "original" ? "contain" : photo.fit, Number(event.target.value))}
             className="mt-1 block w-full accent-accent" />
         </label>
-        {photo.fit !== "original" && <div className="mt-2 aspect-[4/3] overflow-hidden rounded bg-secondary" aria-label={`Предпросмотр фото ${index + 1}`}>
-          <img src={photo.src} alt="" className="block h-full w-full" style={{ objectFit: photo.fit, objectPosition: `${photo.x}% ${photo.y}%`, transform: `scale(${photo.zoom / 100})`, transformOrigin: `${photo.x}% ${photo.y}%` }} />
-        </div>}
+        <p className="mb-2 mt-3 text-[11px] font-semibold">2. Так будет выглядеть на сайте</p>
+        <div className="overflow-hidden rounded border border-border bg-secondary" aria-label={`Предпросмотр фото ${index + 1}`}
+          style={{ aspectRatio: photo.fit === "original" ? undefined : "4 / 3" }}>
+          <img src={photo.src} alt="" className={photo.fit === "original" ? "block h-auto w-full" : "block h-full w-full"}
+            style={{ objectFit: photo.fit === "original" ? "contain" : photo.fit, objectPosition: `${photo.x}% ${photo.y}%`, transform: photo.fit === "original" ? undefined : `scale(${photo.zoom / 100})`, transformOrigin: `${photo.x}% ${photo.y}%` }} />
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">{photo.fit === "original"
+          ? "Фото показывается целиком без рамки. Точка влияет на кадр при обрезке или увеличении."
+          : photo.fit === "contain" && photo.zoom <= 100
+            ? "Фото целиком. Точка меняет его положение, если в рамке есть свободное место. Для обрезки выберите «Заполнить рамку» или увеличьте масштаб."
+            : "Кадр обновляется сразу. Если пропорции фото совпадают с рамкой, при 100% обрезки нет."}</p>
         <button type="button" disabled={disabled} onClick={() => onSizeChange(index, "contain", 100)} className="mt-2 text-[11px] text-accent hover:underline">Показать целиком · 100%</button>
         {photo.cropped && <button type="button" disabled={disabled} onClick={() => onRestore(index)} className="mt-2 block text-[11px] text-accent hover:underline">Вернуть исходное фото без обрезки</button>}
       </div>)}

@@ -43,7 +43,7 @@ export function parseFocus(raw: unknown): ImageFocus | undefined {
 export function framingStyle(focus?: ImageFocus, slot?: ImageSlot): CSSProperties {
   const framing = (slot && focus?.variants?.[slot]) || focus || DEFAULT_FOCUS;
   return {
-    objectPosition: focusPosition(framing), objectFit: framing.fit ?? "cover",
+    objectPosition: focusPosition(framing), objectFit: framing.fit ?? (slot === "tile" ? "contain" : "cover"),
     transform: framing.zoom !== undefined ? `scale(${framing.zoom / 100})` : undefined,
     transformOrigin: focusPosition(framing),
   };
