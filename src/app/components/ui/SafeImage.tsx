@@ -46,7 +46,7 @@ export function parseFocus(raw: unknown): ImageFocus | undefined {
 
 export function resolveFraming(focus?: ImageFocus, slot?: ImageSlot): ImageFraming {
   const framing = (slot && focus?.variants?.[slot]) || focus || DEFAULT_FOCUS;
-  return { ...framing, fit: framing.fit ?? (slot === "tile" ? "contain" : "cover") };
+  return { ...framing, fit: framing.fit ?? (slot === "tile" || slot === "article" ? "contain" : "cover") };
 }
 
 export function framingStyle(focus?: ImageFocus, slot?: ImageSlot): CSSProperties {

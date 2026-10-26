@@ -38,6 +38,7 @@ export default function ImageFocusPicker({ src, focus, onChange }: {
     <div className="flex max-w-[620px] flex-col gap-4">
       {PREVIEWS.map(({slot, label, description, ratio}) => {
         const point = focus?.variants?.[slot] ?? focus ?? DEFAULT_FOCUS;
+        const framing = resolveFraming(focus, slot);
         return <div key={slot} className="min-w-0 rounded border border-border bg-card p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
             <p className="text-xs font-semibold text-red-600">{label}</p>
@@ -52,8 +53,8 @@ export default function ImageFocusPicker({ src, focus, onChange }: {
             <img src={src} alt="" draggable={false} className="block h-auto max-h-[130px] w-auto max-w-full" />
             <span aria-hidden="true" style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }} className="pointer-events-none absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-accent/70 shadow" />
           </button>
-          <label className="mt-3 block text-xs">Вид
-            <select aria-label={`Вид обложки: ${label}`} value={point.fit ?? (slot === "tile" ? "contain" : "cover")} onChange={(event) => change(slot, { fit: event.target.value as "cover" | "contain", zoom: 100 })} className="mt-1 block w-full rounded border border-border bg-card p-1.5">
+          <label className="mt-3 block text-xs">{slot === "article" ? "Вид (по умолчанию: целиком)" : "Вид"}
+            <select aria-label={`Вид обложки: ${label}`} value={framing.fit} onChange={(event) => change(slot, { fit: event.target.value as "cover" | "contain", zoom: 100 })} className="mt-1 block w-full rounded border border-border bg-card p-1.5">
               <option value="cover">Заполнить рамку</option><option value="contain">Целиком</option>
             </select>
           </label>
@@ -62,9 +63,9 @@ export default function ImageFocusPicker({ src, focus, onChange }: {
           </label>
           <p className="mb-2 mt-3 text-[11px] font-semibold">2. Так будет выглядеть на сайте</p>
           <div aria-label={`Предпросмотр обложки: ${label}`} className="admin-photo-preview relative mt-3 overflow-hidden rounded" style={{ aspectRatio: ratio }}>
-            <FramedImage src={src} alt="" className="absolute inset-0 block h-full w-full" framing={resolveFraming(focus, slot)} />
+            <FramedImage src={src} alt="" className="absolute inset-0 block h-full w-full" framing={framing} />
           </div>
-          <p className="mt-2 text-[11px] text-muted-foreground">{(point.fit ?? (slot === "tile" ? "contain" : "cover")) === "contain" && (point.zoom ?? 100) <= 100
+          <p className="mt-2 text-[11px] text-muted-foreground">{framing.fit === "contain" && (point.zoom ?? 100) <= 100
             ? "Фото целиком. Точка меняет положение в свободном пространстве рамки."
             : "Края фото за синей рамкой обрезаются. Чтобы сохранить весь снимок, нажмите «Показать целиком · 100%»."}</p>
           <button type="button" onClick={() => change(slot, { fit: "contain", zoom: 100, x: .5, y: .5 })} className="mt-2 text-[11px] text-accent hover:underline">Показать целиком · 100%</button>

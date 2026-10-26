@@ -17,6 +17,9 @@ describe("independent cover frames", () => {
     }
     try {
       await act(async () => root.render(<Form />));
+      const articleFit = host.querySelector<HTMLSelectElement>('select[aria-label="Вид обложки: Внутри самой новости при открытии"]')!;
+      expect(articleFit.value).toBe("contain");
+      expect(articleFit.closest("label")?.textContent).toContain("Вид (по умолчанию: целиком)");
       const fit = host.querySelector<HTMLSelectElement>('select[aria-label="Вид обложки: Слайдер с 3 новостями"]')!;
       await act(async () => { fit.value = "contain"; fit.dispatchEvent(new Event("change", { bubbles: true })); });
       const focusButton = host.querySelector<HTMLButtonElement>('button[aria-label="Точка кадрирования: Большой главный слайдер с одной новостью"]')!;
@@ -27,7 +30,7 @@ describe("independent cover frames", () => {
       await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="Сбросить настройки обложки: Большой главный слайдер с одной новостью"]')!.click());
       expect(saved?.variants?.slider).toEqual({ x: .5, y: .5, fit: "contain", zoom: 100 });
       expect(saved?.variants?.tile).toEqual(restored?.variants?.tile);
-      expect(framingStyle(restored, "article").objectFit).toBe("cover");
+      expect(framingStyle(restored, "article").objectFit).toBe("contain");
       await act(async () => root.render(<><SafeImage src="/uploads/a.jpg" alt="tile" slot="tile" focus={restored} /><SafeImage src="/uploads/a.jpg" alt="slider" slot="slider" focus={restored} /></>));
       expect(host.querySelector<HTMLImageElement>('img[alt="tile"]')?.style.objectFit).toBe("contain");
       expect(host.querySelector<HTMLImageElement>('img[alt="slider"]')?.style.objectPosition).toBe("52% 30%");
@@ -40,11 +43,14 @@ describe("independent cover frames", () => {
     expect(focus?.variants?.card).toBeUndefined();
     expect(framingStyle(focus, "tile").transform).toBe("scale(2)");
   });
-  it("uses whole at 100% for new cover images without changing the fallback for old images", () => {
+  it("defaults opened articles to whole while preserving explicit framing and other placements", () => {
     for (const slot of ["slider", "article", "card", "tile"] as const) {
       expect(resolveFraming(NEW_IMAGE_FOCUS, slot)).toMatchObject({ fit: "contain", zoom: 100 });
     }
     expect(resolveFraming(undefined, "slider").fit).toBe("cover");
+    expect(resolveFraming(undefined, "card").fit).toBe("cover");
+    expect(resolveFraming(undefined, "article").fit).toBe("contain");
+    expect(resolveFraming({ x: .2, y: .8 }, "article")).toMatchObject({ x: .2, y: .8, fit: "contain" });
     expect(resolveFraming({ x: .2, y: .8, zoom: 150, fit: "cover" }, "article")).toMatchObject({ x: .2, y: .8, zoom: 150, fit: "cover" });
   });
   it("uses the entire source at 80% in both admin preview and public image after loading", async () => {
