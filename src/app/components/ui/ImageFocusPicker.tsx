@@ -2,11 +2,11 @@ import type { KeyboardEvent, MouseEvent } from "react";
 import { DEFAULT_FOCUS, NEW_IMAGE_FOCUS, resolveFraming, type ImageFocus, type ImageFraming, type ImageSlot } from "./SafeImage";
 import FramedImage from "./FramedImage";
 
-const PREVIEWS: { slot: ImageSlot; label: string; ratio: string }[] = [
-  { slot: "slider", label: "Слайдер", ratio: "600 / 280" },
-  { slot: "article", label: "В новости", ratio: "940 / 480" },
-  { slot: "card", label: "Карточка новости", ratio: "400 / 176" },
-  { slot: "tile", label: "Лента новостей", ratio: "2 / 1" },
+const PREVIEWS: { slot: ImageSlot; label: string; description: string; ratio: string }[] = [
+  { slot: "slider", label: "Слайдер на главной", description: "Большой переключающийся блок в верхней части главной страницы.", ratio: "600 / 280" },
+  { slot: "article", label: "Внутри самой новости", description: "Большая обложка над основным текстом открытой новости.", ratio: "940 / 480" },
+  { slot: "card", label: "Карточка в разделе «Новости»", description: "Изображение в сетке на странице со всеми новостями.", ratio: "400 / 176" },
+  { slot: "tile", label: "Лента на главной", description: "Три новости в блоке «Новости института» под слайдером главной страницы.", ratio: "2 / 1" },
 ];
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
 
@@ -36,7 +36,7 @@ export default function ImageFocusPicker({ src, focus, onChange }: {
     </div>
     <p className="mb-3 text-xs text-muted-foreground">Синяя рамка показывает точную границу кадра на сайте: всё за ней обрезается. «Целиком» при 100% показывает весь снимок. Сохраните новость, чтобы применить настройки.</p>
     <div className="flex max-w-[620px] flex-col gap-4">
-      {PREVIEWS.map(({slot, label, ratio}) => {
+      {PREVIEWS.map(({slot, label, description, ratio}) => {
         const point = focus?.variants?.[slot] ?? focus ?? DEFAULT_FOCUS;
         return <div key={slot} className="min-w-0 rounded border border-border bg-card p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
@@ -45,6 +45,7 @@ export default function ImageFocusPicker({ src, focus, onChange }: {
               onClick={() => change(slot, { ...NEW_IMAGE_FOCUS })}
               className="text-xs text-accent hover:underline">Сбросить этот кадр</button>
           </div>
+          <p className="mb-3 text-xs text-muted-foreground">{description}</p>
           <p className="mb-2 text-[11px] text-muted-foreground">1. Точка на исходном фото</p>
           <button type="button" aria-label={`Точка кадрирования: ${label}`} onClick={(event) => pick(slot, event)} onKeyDown={(event) => nudge(slot, point, event)}
             className="relative mx-auto block w-fit max-w-full cursor-crosshair overflow-hidden rounded focus-visible:outline-2 focus-visible:outline-accent">

@@ -5,7 +5,7 @@ export interface ContentRepository {
   list(type: ContentType, publishedOnly?: boolean): Promise<ManagedContent[]>;
   listPublished(): Promise<ManagedContent[]>;
   slugExists(slug: string): Promise<boolean>;
-  save(item: ManagedContent): Promise<void>;
+  save(item: ManagedContent): Promise<ManagedContent>;
   setReviewed(id: string, reviewed: boolean): Promise<ManagedContent>;
   upsert(items: Omit<ManagedContent, "id">[] | Record<string, unknown>[]): Promise<void>;
   remove(id: string): Promise<void>;
@@ -27,7 +27,7 @@ class ApiContentRepository implements ContentRepository {
 
   async save(item: ManagedContent) {
     const { id, created_at: _createdAt, updated_at: _updatedAt, ...payload } = item;
-    await apiRequest(id ? `/api/admin/content/${encodeURIComponent(id)}` : "/api/admin/content", {
+    return apiRequest<ManagedContent>(id ? `/api/admin/content/${encodeURIComponent(id)}` : "/api/admin/content", {
       method: id ? "PUT" : "POST",
       body: JSON.stringify(payload),
     });

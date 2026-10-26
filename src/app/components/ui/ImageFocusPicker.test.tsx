@@ -17,14 +17,14 @@ describe("independent cover frames", () => {
     }
     try {
       await act(async () => root.render(<Form />));
-      const fit = host.querySelector<HTMLSelectElement>('select[aria-label="Вид обложки: Лента новостей"]')!;
+      const fit = host.querySelector<HTMLSelectElement>('select[aria-label="Вид обложки: Лента на главной"]')!;
       await act(async () => { fit.value = "contain"; fit.dispatchEvent(new Event("change", { bubbles: true })); });
-      const focusButton = host.querySelector<HTMLButtonElement>('button[aria-label="Точка кадрирования: Слайдер"]')!;
+      const focusButton = host.querySelector<HTMLButtonElement>('button[aria-label="Точка кадрирования: Слайдер на главной"]')!;
       await act(async () => { focusButton.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })); });
       const restored = parseFocus(JSON.parse(JSON.stringify(saved)));
       expect(restored?.variants?.slider?.x).toBe(.52);
       expect(restored?.variants?.tile).toEqual({ x: .5, y: .3, fit: "contain", zoom: 100 });
-      await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="Сбросить настройки обложки: Слайдер"]')!.click());
+      await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="Сбросить настройки обложки: Слайдер на главной"]')!.click());
       expect(saved?.variants?.slider).toEqual({ x: .5, y: .5, fit: "contain", zoom: 100 });
       expect(saved?.variants?.tile).toEqual(restored?.variants?.tile);
       expect(framingStyle(restored, "article").objectFit).toBe("cover");
@@ -53,7 +53,7 @@ describe("independent cover frames", () => {
     const focus: ImageFocus = { x: .5, y: .5, variants: { slider: { x: .5, y: .5, fit: "cover", zoom: 80 } } };
     try {
       await act(async () => root.render(<><ImageFocusPicker src="/uploads/a.jpg" focus={focus} onChange={() => {}} /><SafeImage src="/uploads/a.jpg" alt="public" focus={focus} slot="slider" /></>));
-      const images = [host.querySelector<HTMLImageElement>('[aria-label="Предпросмотр обложки: Слайдер"] img')!, host.querySelector<HTMLImageElement>('img[alt="public"]')!];
+      const images = [host.querySelector<HTMLImageElement>('[aria-label="Предпросмотр обложки: Слайдер на главной"] img')!, host.querySelector<HTMLImageElement>('img[alt="public"]')!];
       await act(async () => {
         for (const image of images) {
           for (const [key, value] of Object.entries({ clientWidth: 200, clientHeight: 200, naturalWidth: 1000, naturalHeight: 500 })) Object.defineProperty(image, key, { value, configurable: true });

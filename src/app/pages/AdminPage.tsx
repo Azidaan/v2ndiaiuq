@@ -371,9 +371,9 @@ function Dashboard({ user }: { user: AdminSession["user"] }) {
               initial={editing}
               onReviewed={(saved) => setItems((current) => current.map((item) => item.id === saved.id ? saved : item))}
               onCancel={() => setEditing(null)}
-              onSaved={async () => {
-                setEditing(null);
-                await load();
+              onSaved={(saved) => {
+                setItems((current) => [...current.filter((item) => item.id !== saved.id), saved]
+                  .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime()));
               }}
             />
           ) : (
@@ -573,7 +573,7 @@ function Editor({
 }: {
   initial: ManagedContent;
   onCancel: () => void;
-  onSaved: () => void;
+  onSaved: (saved: ManagedContent) => void;
   onReviewed: (item: ManagedContent) => void;
 }) {
   const [form, setForm] = useState(() => !initial.id && initial.type === "news"
@@ -582,16 +582,20 @@ function Editor({
   const [reviewBusy, setReviewBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const update = (key: keyof ManagedContent, value: unknown) =>
+  const update = (key: keyof ManagedContent, value: unknown) => {
+    setMessage("");
     setForm((current) => ({ ...current, [key]: value,
       metadata: key === "image_url" && value && value !== current.image_url && current.type === "news"
         ? { ...current.metadata, focus: { ...NEW_IMAGE_FOCUS } } : current.metadata,
     }));
-  const updateMetadata = (key: string, value: unknown) =>
+  };
+  const updateMetadata = (key: string, value: unknown) => {
+    setMessage("");
     setForm((current) => ({
       ...current,
       metadata: { ...current.metadata, [key]: value },
     }));
+  };
 
   async function saveReview(checked: boolean) {
     const previous = Boolean(form.metadata.reviewed);
@@ -642,13 +646,18 @@ function Editor({
       body: sanitizeHtml(form.body),
     };
     try {
-      await contentRepository.save(payload);
+      const saved = await contentRepository.save(payload);
+      setForm((current) => current === form ? saved : { ...current, id: saved.id,
+        slug: current.slug === form.slug ? saved.slug : current.slug,
+        created_at: saved.created_at, updated_at: saved.updated_at });
+      setMessage("Сохранено");
+      onSaved(saved);
     } catch (reason) {
       setMessage(`Не удалось сохранить: ${reason instanceof Error ? reason.message : "неизвестная ошибка"}`);
       setBusy(false);
       return;
     }
-    onSaved();
+    setBusy(false);
   }
 
   return (
@@ -903,9 +912,7 @@ function Editor({
           </span>
         </label>
       )}
-      {message && (
-        <p className="text-sm text-muted-foreground mt-3">{message}</p>
-      )}
+      <p role="status" aria-live="polite" className="mt-3 min-h-6 text-sm text-muted-foreground">{message}</p>
       <div className="flex gap-3 mt-5">
         <button
           disabled={busy || reviewBusy}
