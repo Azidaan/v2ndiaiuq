@@ -26,7 +26,7 @@ beforeEach(async () => {
   await act(async () => root.render(<MemoryRouter><AdminPage /></MemoryRouter>));
   await act(async () => button("Новости").click());
 });
-afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.restoreAllMocks(); });
+afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("save without leaving the editor", () => {
   it("retains the same form, position and enabled save button after saving an existing post", async () => {
@@ -64,5 +64,25 @@ describe("save without leaving the editor", () => {
     expect(host.querySelector('[role="status"]')?.textContent).toContain("Не удалось сохранить");
     expect(host.querySelector<HTMLInputElement>("form input.admin-input")?.value).toBe(item.title);
     expect(button("Сохранить").disabled).toBe(false);
+  });
+  it("returns to the same news row and scroll position using the exit button after saving", async () => {
+    let scroll = 1500;
+    const frames: FrameRequestCallback[] = [];
+    vi.spyOn(window, "scrollY", "get").mockImplementation(() => scroll);
+    vi.mocked(window.scrollTo).mockImplementation((_x, y) => { scroll = y ?? scroll; });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return new DOMRect(0, this.id === "content-item-existing" ? 1625 - scroll : 0, 640, 80);
+    });
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { frames.push(callback); return frames.length; });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+    await act(async () => host.querySelector<HTMLButtonElement>('button[title="Редактировать"]')!.click());
+    expect(scroll).toBe(0);
+    await submit();
+    expect(host.querySelector('[role="status"]')?.textContent).toBe("Сохранено");
+    await act(async () => button("Выйти к списку новостей").click());
+    while (frames.length) await act(async () => frames.shift()!(0));
+    expect(host.querySelector("form")).toBeNull();
+    expect(host.querySelector("#content-item-existing")).not.toBeNull();
+    expect(scroll).toBe(1500);
   });
 });

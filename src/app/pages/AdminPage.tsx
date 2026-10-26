@@ -912,7 +912,13 @@ function Editor({
           </span>
         </label>
       )}
-      <p role="status" aria-live="polite" className="mt-3 min-h-6 text-sm text-muted-foreground">{message}</p>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <p role="status" aria-live="polite" className="min-h-6 min-w-0 flex-1 text-sm text-muted-foreground">{message}</p>
+        <button type="button" onClick={onCancel} disabled={busy || reviewBusy}
+          className="shrink-0 rounded bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50">
+          {form.type === "news" ? "Выйти к списку новостей" : "Выйти к списку"}
+        </button>
+      </div>
       <div className="flex gap-3 mt-5">
         <button
           disabled={busy || reviewBusy}
