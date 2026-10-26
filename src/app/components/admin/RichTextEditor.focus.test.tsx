@@ -117,4 +117,16 @@ describe("independent photo focus controls", () => {
     expect(publicImage.parentElement?.style.aspectRatio).toBe("300 / 300");
     expect(publicImage.style.transform).toBe("scale(1)");
   });
+  it("resets only one photo's focus, fit and zoom, retaining its file and the neighbouring photo", async () => {
+    await mount(initial.replace('data-focus="20 30"', 'data-focus="20 30" data-fit="cover" data-zoom="150"').replace('data-focus="70 80"', 'data-focus="70 80" data-fit="contain" data-zoom="95"'));
+    await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="Сбросить настройки фото 1"]')!.click());
+    expect(photos().map((i) => [i.getAttribute("src"), i.getAttribute("data-focus"), i.getAttribute("data-fit"), i.getAttribute("data-zoom")])).toEqual([
+      ["/uploads/a.jpg", "50 50", null, null], ["/uploads/b.jpg", "70 80", "contain", "95"],
+    ]);
+    await act(async () => photos()[1].click());
+    expect(host.querySelector('[aria-label="Редактирование выбранного фото"]')).not.toBeNull();
+    // Editor-only controls and reserved space never become article content.
+    expect(saved).not.toContain("Редактирование выбранного фото");
+    expect(saved).not.toContain("padding-top");
+  });
 });

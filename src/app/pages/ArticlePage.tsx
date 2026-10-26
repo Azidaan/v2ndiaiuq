@@ -1,27 +1,28 @@
 import { Link, useParams } from "react-router";
 import { Calendar, Tag, ArrowLeft } from "lucide-react";
 import Breadcrumbs from "../components/layout/Breadcrumbs";
-import { NEWS, formatDate, CATEGORY_LABELS } from "../data";
+import { formatDate, CATEGORY_LABELS } from "../data";
 import { useManagedContent } from "../lib/content";
 import type { NewsCategory } from "../data";
 import SafeHtml from "../components/SafeHtml";
-import SafeImage, { parseFocus, type ImageFocus } from "../components/ui/SafeImage";
+import SafeImage, { parseFocus } from "../components/ui/SafeImage";
 import { htmlToPlainText } from "../lib/sanitize";
 
 export default function ArticlePage() {
   const { id } = useParams<{ id: string }>();
   const { items: managedNews, loading, error } = useManagedContent("news");
-  const news = !error && managedNews.length > 0 ? managedNews.map((entry) => ({
+  const news = managedNews.map((entry) => ({
     id: entry.slug, title: entry.title, date: entry.published_at,
     category: (entry.category || "institute") as NewsCategory,
     excerpt: entry.summary, body: entry.body, image: entry.image_url || undefined,
     tags: (entry.metadata.tags as string[] | undefined) ?? [],
     focus: parseFocus(entry.metadata.focus),
     hideArticleCover: entry.metadata.hideArticleCover === true,
-  })) : NEWS.map((entry) => ({ ...entry, focus: undefined as ImageFocus | undefined, hideArticleCover: false }));
+  }));
   const item = news.find((n) => n.id === id);
 
   if (loading && !item) return <div className="max-w-[1280px] mx-auto px-4 py-16 text-center text-muted-foreground">Загрузка...</div>;
+  if (error) return <p role="alert" className="px-4 py-16 text-center text-muted-foreground">Не удалось загрузить новость. Обновите страницу.</p>;
 
   if (!item) {
     return (
@@ -43,10 +44,10 @@ export default function ArticlePage() {
         { label: item.title.slice(0, 40) + (item.title.length > 40 ? "…" : "") },
       ]} />
 
-      <div className="max-w-[1280px] mx-auto px-4 py-6">
-        <div className="flex flex-col lg:flex-row gap-8">
+      <div className="max-w-[1000px] mx-auto px-4 py-6">
+        <div className="flex flex-col gap-8">
           {/* Article body */}
-          <article className="flex-1 min-w-0">
+          <article className="news-article w-full min-w-0">
             <Link to="/news" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-accent transition-colors mb-5">
               <ArrowLeft size={13} aria-hidden="true" /> К списку новостей
             </Link>
@@ -65,8 +66,8 @@ export default function ArticlePage() {
             </h1>
 
             {item.image && !item.hideArticleCover && (
-              <div className="mb-6 aspect-[940/480] w-full overflow-hidden rounded bg-background">
-                <SafeImage src={item.image} alt={item.title} focus={item.focus} slot="article" className="h-full w-full object-cover" />
+              <div className="relative mb-6 aspect-[940/480] w-full overflow-hidden rounded">
+                <SafeImage src={item.image} alt={item.title} focus={item.focus} slot="article" className="absolute inset-0 h-full w-full object-cover" />
               </div>
             )}
 
@@ -87,7 +88,7 @@ export default function ArticlePage() {
           </article>
 
           {/* Sidebar */}
-          <aside className="w-full lg:w-[280px] shrink-0 flex flex-col gap-5">
+          <aside className="grid w-full gap-5 md:grid-cols-2">
             <div className="bg-card border border-border rounded p-4">
               <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Похожие материалы</h2>
               {related.length > 0 ? (

@@ -2,11 +2,11 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Search, Filter } from "lucide-react";
 import Breadcrumbs from "../components/layout/Breadcrumbs";
-import { NEWS, formatDate, CATEGORY_LABELS, type NewsCategory } from "../data";
+import { formatDate, CATEGORY_LABELS, type NewsCategory } from "../data";
 import { useManagedContent } from "../lib/content";
 import SafeHtml from "../components/SafeHtml";
 import DatePeriodPicker, { matchesPeriod, type DatePeriod } from "../components/ui/DatePeriodPicker";
-import SafeImage, { parseFocus, type ImageFocus } from "../components/ui/SafeImage";
+import SafeImage, { parseFocus } from "../components/ui/SafeImage";
 
 const ALL_CATEGORIES: { value: NewsCategory | "all"; label: string }[] = [
   { value: "all", label: "Все новости" },
@@ -17,19 +17,19 @@ const ALL_CATEGORIES: { value: NewsCategory | "all"; label: string }[] = [
 ];
 
 export default function NewsListPage() {
-  const { items: managedNews, error } = useManagedContent("news");
+  const { items: managedNews, loading, error } = useManagedContent("news");
   const [searchParams] = useSearchParams();
   const initCat = (searchParams.get("cat") as NewsCategory) || "all";
   const [category, setCategory] = useState<NewsCategory | "all">(initCat);
   const [period, setPeriod] = useState<DatePeriod>(null);
   const [query, setQuery] = useState("");
 
-  const news = !error && managedNews.length > 0 ? managedNews.map((item) => ({
+  const news = managedNews.map((item) => ({
     id: item.slug, title: item.title, date: item.published_at,
     category: (item.category || "institute") as NewsCategory,
     excerpt: item.summary, body: item.body, image: item.image_url || undefined,
     focus: parseFocus(item.metadata.focus),
-  })) : NEWS.map((item) => ({ ...item, focus: undefined as ImageFocus | undefined }));
+  }));
   const filtered = news.filter((n) => {
     if (category !== "all" && n.category !== category) return false;
     if (!matchesPeriod(n.date, period)) return false;
@@ -86,7 +86,9 @@ export default function NewsListPage() {
           />
         </div>
 
-        {filtered.length === 0 ? (
+        {loading ? <p role="status" className="py-8 text-center text-muted-foreground">Загрузка новостей...</p>
+          : error ? <p role="alert" className="py-8 text-center text-muted-foreground">Не удалось загрузить новости. Обновите страницу.</p>
+          : filtered.length === 0 ? (
           <p className="text-muted-foreground text-sm py-8 text-center">Новостей по заданным фильтрам не найдено.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -97,7 +99,7 @@ export default function NewsListPage() {
                 className="bg-card rounded border border-border hover:border-accent hover:shadow-sm group transition-all overflow-hidden flex flex-col"
               >
                 {item.image && (
-                  <div className="h-44 bg-background overflow-hidden shrink-0">
+                  <div className="h-44 overflow-hidden shrink-0">
                     <SafeImage src={item.image} alt={item.title} focus={item.focus} slot="card" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   </div>
                 )}

@@ -7,12 +7,13 @@ export type InlinePhotoFocus = { src: string; x: number; y: number; caption: str
 const clamp = (value: number) => Math.min(100, Math.max(0, value));
 
 /** Every control addresses its own photo; it does not depend on the editor's selection. */
-export default function InlinePhotoFocusPanel({ photos, disabled, onChange, onSizeChange, onRestore }: {
+export default function InlinePhotoFocusPanel({ photos, disabled, onChange, onSizeChange, onRestore, onReset }: {
   photos: InlinePhotoFocus[];
   disabled: boolean;
   onChange: (index: number, x: number, y: number) => void;
   onSizeChange: (index: number, fit: PhotoFit, zoom: number) => void;
   onRestore: (index: number) => void;
+  onReset: (index: number) => void;
 }) {
   function pick(index: number, event: MouseEvent<HTMLButtonElement>) {
     if (event.detail === 0) return; // Keyboard activation must not use the synthetic (0, 0) coordinates.
@@ -37,12 +38,13 @@ export default function InlinePhotoFocusPanel({ photos, disabled, onChange, onSi
   return <details open className="border-t border-border bg-secondary/30 p-3">
     <summary className="cursor-pointer text-xs font-semibold text-foreground">Настройки каждой фотографии ({photos.length})</summary>
     <p className="mt-2 text-xs text-muted-foreground">Нажмите на важное место на миниатюре. Ниже выберите вид и масштаб. «Целиком» при 100% показывает весь снимок. Настройки сохраняются вместе с новостью.</p>
-    <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="mt-3 flex max-w-[620px] flex-col gap-3">
       {photos.map((photo, index) => <div key={`${index}:${photo.src}`} className="min-w-0 rounded border border-border bg-card p-3">
         <div className="mb-2 flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-1 text-xs font-semibold"><Crosshair size={13} aria-hidden="true" /> Фото {index + 1}</span>
           <button type="button" disabled={disabled} aria-label={`Сбросить точку фокуса фото ${index + 1}`} onClick={() => onChange(index, 50, 50)} className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50"><RotateCcw size={12} aria-hidden="true" /> В центр</button>
         </div>
+        <button type="button" disabled={disabled} aria-label={`Сбросить настройки фото ${index + 1}`} onClick={() => onReset(index)} className="mb-3 text-xs text-accent hover:underline">Сбросить настройки этого фото</button>
         <p className="mb-2 text-[11px] font-medium text-muted-foreground">1. Выберите точку на исходном фото</p>
         <button type="button" disabled={disabled}
           aria-label={`Точка фокуса фото ${index + 1}: ${photo.x}% по горизонтали, ${photo.y}% по вертикали`}
@@ -69,7 +71,7 @@ export default function InlinePhotoFocusPanel({ photos, disabled, onChange, onSi
             className="mt-1 block w-full accent-accent" />
         </label>
         <p className="mb-2 mt-3 text-[11px] font-semibold">2. Так будет выглядеть на сайте</p>
-        <div className="relative overflow-hidden rounded border border-border bg-background" aria-label={`Предпросмотр фото ${index + 1}`}
+        <div className="relative overflow-hidden rounded" aria-label={`Предпросмотр фото ${index + 1}`}
           style={{ aspectRatio: photo.fit === "original" ? undefined : inlinePhotoAspectRatio(photo.fit, photo.naturalWidth, photo.naturalHeight) }}>
           <FramedImage src={photo.src} alt="" className={photo.fit === "original" ? "block h-auto w-full" : "absolute inset-0 block h-full w-full"}
             framing={{ x: photo.x / 100, y: photo.y / 100, fit: photo.fit === "original" ? "contain" : photo.fit, zoom: photo.fit === "original" ? undefined : photo.zoom }} />

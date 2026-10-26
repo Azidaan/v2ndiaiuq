@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ChevronRight, ChevronLeft, Newspaper, Calendar, BookOpen, ArrowRight, FileText, GraduationCap, FlaskConical, Building2, ExternalLink, type LucideIcon } from "lucide-react";
-import { NEWS, formatDate, CATEGORY_LABELS, type NewsCategory } from "../data";
+import { formatDate, CATEGORY_LABELS, type NewsCategory, type NewsItem } from "../data";
 import naukaRfLogo from "../../imports/nauka-rf-logo.png";
 import { useManagedContent } from "../lib/content";
 import SafeHtml from "../components/SafeHtml";
 import SafeImage, { parseFocus, type ImageFocus } from "../components/ui/SafeImage";
 
-type HomeNewsItem = (typeof NEWS)[number] & { featured?: boolean; featuredOrder?: number; focus?: ImageFocus };
+type HomeNewsItem = NewsItem & { featured?: boolean; featuredOrder?: number; focus?: ImageFocus };
 type HomeBlock = { title: string; summary: string; tag: string; path: string; image?: string; hidden?: boolean };
 
 const CATEGORY_COLORS: Record<NewsCategory, string> = {
@@ -75,7 +75,7 @@ type HeroSlideCardProps = {
 function HeroSlideCard({ item, slides, activeIndex, exiting = false, wide = false, onSelect, onPrevious, onNext }: HeroSlideCardProps) {
   return (
     <div
-      className={`${exiting ? "hero-slide-exit absolute inset-0 pointer-events-none" : "hero-slide-enter relative"} flex min-h-[300px] flex-col sm:flex-row`}
+      className={`${exiting ? "hero-slide-exit pointer-events-none" : "hero-slide-enter"} flex h-full min-h-[360px] flex-col sm:flex-row`}
       aria-hidden={exiting || undefined}
     >
       <div className="flex-1 min-w-0 p-5 sm:p-6 flex flex-col justify-between">
@@ -89,7 +89,7 @@ function HeroSlideCard({ item, slides, activeIndex, exiting = false, wide = fals
           </h2>
           <SafeHtml html={item.excerpt} className="text-sm text-muted-foreground leading-relaxed line-clamp-4" />
         </div>
-        <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-4">
+        <div className="hero-slide-controls flex flex-wrap items-center gap-3 sm:gap-4 mt-4">
           <Link
             to={`/news/${item.id}`}
             className="flex items-center gap-2 bg-accent text-accent-foreground text-sm px-4 py-2 rounded hover:bg-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -124,14 +124,14 @@ function HeroSlideCard({ item, slides, activeIndex, exiting = false, wide = fals
         </div>
       </div>
       {item.image && (
-        <div className="aspect-[600/280] w-full shrink-0 self-stretch overflow-hidden bg-background sm:w-[600px] sm:max-w-[63%]">
+        <div className="relative aspect-[600/280] w-full shrink-0 self-stretch overflow-hidden sm:w-[600px] sm:max-w-[63%]">
           <SafeImage
             src={item.image}
             alt={item.title}
             focus={item.focus}
             slot="slider"
             loading="lazy"
-            className="h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover"
           />
         </div>
       )}
@@ -142,13 +142,14 @@ function HeroSlideCard({ item, slides, activeIndex, exiting = false, wide = fals
 function HeroSlider({ news, blocks }: { news: HomeNewsItem[]; blocks: Record<string, HomeBlock> }) {
   const [slide, setSlide] = useState(0);
   const [previousSlide, setPreviousSlide] = useState<number | null>(null);
+  const [paused, setPaused] = useState(false);
   const slideRef = useRef(0);
   const selected = news.filter((item) => item.featured).sort((a, b) => (a.featuredOrder ?? 999) - (b.featuredOrder ?? 999));
   const slides = (selected.length > 0 ? selected : news.slice(0, 3));
   useEffect(() => { if (slide >= slides.length) setSlide(0); }, [slide, slides.length]);
   useEffect(() => { slideRef.current = slide; }, [slide]);
   useEffect(() => {
-    if (slides.length < 2) return;
+    if (slides.length < 2 || paused) return;
 
     const timer = window.setInterval(() => {
       const current = slideRef.current;
@@ -157,15 +158,13 @@ function HeroSlider({ news, blocks }: { news: HomeNewsItem[]; blocks: Record<str
     }, 3000);
 
     return () => window.clearInterval(timer);
-  }, [slides.length]);
+  }, [slides.length, paused]);
   useEffect(() => {
     if (previousSlide === null) return;
     const timer = window.setTimeout(() => setPreviousSlide(null), HERO_TRANSITION_MS);
     return () => window.clearTimeout(timer);
   }, [previousSlide, slide]);
   if (slides.length === 0) return <div className="min-h-[300px] border border-border bg-card rounded flex items-center justify-center text-sm text-muted-foreground">Новости для слайдера пока не выбраны.</div>;
-  const item = slides[slide];
-  const previousItem = previousSlide === null ? null : (slides[previousSlide] ?? null);
   const selectSlide = (next: number) => {
     const normalized = (next + slides.length) % slides.length;
     if (normalized === slide) return;
@@ -178,30 +177,16 @@ function HeroSlider({ news, blocks }: { news: HomeNewsItem[]; blocks: Record<str
   return (
     <div className={`flex ${showCards ? "lg:gap-5" : ""}`}>
       {/* Main slide */}
-      <div className="relative flex-1 min-w-0 bg-white rounded-sm overflow-hidden shadow-sm border border-border min-h-[300px]">
-        {previousItem && (
-          <HeroSlideCard
-            key={`previous-${previousItem.id}`}
-            item={previousItem}
-            slides={slides}
-            activeIndex={slide}
-            exiting
-            wide={!showCards}
-            onSelect={selectSlide}
-            onPrevious={() => selectSlide(slide - 1)}
-            onNext={() => selectSlide(slide + 1)}
-          />
-        )}
-        <HeroSlideCard
-          key={item.id}
-          item={item}
-          slides={slides}
-          activeIndex={slide}
-          wide={!showCards}
-          onSelect={selectSlide}
-          onPrevious={() => selectSlide(slide - 1)}
-          onNext={() => selectSlide(slide + 1)}
-        />
+      <div className="hero-slider grid relative flex-1 min-w-0 bg-white rounded-sm overflow-hidden shadow-sm border border-border min-h-[360px]"
+        onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)}
+        onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false); }}>
+        {slides.map((item, index) => (
+          <div key={item.id} style={{ gridArea: "1 / 1", zIndex: index === previousSlide ? 2 : index === slide ? 1 : 0, visibility: index === slide || index === previousSlide ? "visible" : "hidden" }}
+            aria-hidden={index !== slide || undefined} {...(index !== slide ? { inert: "" } : {})}>
+            <HeroSlideCard item={item} slides={slides} activeIndex={slide} exiting={index === previousSlide && index !== slide}
+              wide={!showCards} onSelect={selectSlide} onPrevious={() => selectSlide(slide - 1)} onNext={() => selectSlide(slide + 1)} />
+          </div>
+        ))}
       </div>
 
       {/* Right sidebar cards */}
@@ -293,7 +278,7 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
             to={`/news/${item.id}`}
             className="group flex min-w-0 flex-col overflow-hidden rounded border border-border bg-card transition-colors hover:border-accent"
           >
-            <div className="aspect-[2/1] w-full shrink-0 overflow-hidden bg-background">
+            <div className="aspect-[2/1] w-full shrink-0 overflow-hidden">
               {item.image && (
                 <SafeImage
                   src={item.image}
@@ -331,10 +316,10 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
 }
 
 export default function HomePage() {
-  const { items: managedNews, error: newsError } = useManagedContent("news");
+  const { items: managedNews, loading: newsLoading, error: newsError } = useManagedContent("news");
   const { items: managedBlocks, error: blocksError } = useManagedContent("visual_block");
   const blocks = Object.fromEntries((blocksError ? [] : managedBlocks).filter((item) => item.slug.startsWith("block:home:")).map((item) => [item.slug.replace("block:home:", ""), { title: item.title, summary: item.summary, tag: String(item.metadata.tag ?? ""), path: String(item.metadata.path ?? ""), image: item.image_url || undefined, hidden: item.metadata.hidden === true }])) as Record<string, HomeBlock>;
-  const news: HomeNewsItem[] = !newsError && managedNews.length > 0 ? managedNews.map((item) => ({
+  const news: HomeNewsItem[] = managedNews.map((item) => ({
     id: item.slug,
     title: item.title,
     date: item.published_at,
@@ -346,13 +331,15 @@ export default function HomePage() {
     featured: Boolean(item.metadata.featured),
     featuredOrder: Number(item.metadata.featuredOrder) || 999,
     focus: parseFocus(item.metadata.focus),
-  })) : NEWS;
+  }));
   return (
     <div style={{ fontFamily: "var(--font-body)" }}>
       {/* HERO */}
       <section className="bg-background py-5">
         <div className="max-w-[1280px] mx-auto px-4">
-          <HeroSlider news={news} blocks={blocks} />
+          {newsLoading ? <div role="status" className="min-h-[360px] rounded border border-border bg-card p-6 text-sm text-muted-foreground">Загрузка новостей...</div>
+            : newsError ? <p role="alert" className="py-10 text-center text-sm text-muted-foreground">Не удалось загрузить новости. Обновите страницу.</p>
+              : <HeroSlider news={news} blocks={blocks} />}
         </div>
       </section>
 

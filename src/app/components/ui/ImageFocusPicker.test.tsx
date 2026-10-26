@@ -24,6 +24,9 @@ describe("independent cover frames", () => {
       const restored = parseFocus(JSON.parse(JSON.stringify(saved)));
       expect(restored?.variants?.slider?.x).toBe(.52);
       expect(restored?.variants?.tile).toEqual({ x: .5, y: .3, fit: "contain", zoom: 100 });
+      await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="Сбросить настройки обложки: Слайдер"]')!.click());
+      expect(saved?.variants?.slider).toEqual({ x: .5, y: .3, fit: "cover", zoom: 100 });
+      expect(saved?.variants?.tile).toEqual(restored?.variants?.tile);
       expect(framingStyle(restored, "article").objectFit).toBe("cover");
       await act(async () => root.render(<><SafeImage src="/uploads/a.jpg" alt="tile" slot="tile" focus={restored} /><SafeImage src="/uploads/a.jpg" alt="slider" slot="slider" focus={restored} /></>));
       expect(host.querySelector<HTMLImageElement>('img[alt="tile"]')?.style.objectFit).toBe("contain");

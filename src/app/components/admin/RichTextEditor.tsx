@@ -17,6 +17,9 @@ export default function RichTextEditor({
   compact?: boolean;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const photoToolbarRef = useRef<HTMLDivElement>(null);
+  const [photoToolbarPosition, setPhotoToolbarPosition] = useState<{ top: number; left: number; width: number } | null>(null);
   const editingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Позиция курсора на момент нажатия кнопки: загрузка файла асинхронная,
@@ -28,7 +31,7 @@ export default function RichTextEditor({
   const [selectedBlockIndex, setSelectedBlockIndex] = useState<number | null>(null);
   const selectedBlockRef = useRef<number | null>(null);
   const pendingBlockIndex = useRef<number | null>(null);
-  const [, refresh] = useState(0);
+  const [revision, refresh] = useState(0);
   const [cropping, setCropping] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -68,6 +71,27 @@ export default function RichTextEditor({
     applyInlinePhotoPresentation(editor);
     return observeInlinePhotoPresentation(editor);
   });
+
+  // Reserve space in this photo's row, and place React controls outside the editable HTML.
+  useLayoutEffect(() => {
+    const block = currentBlock();
+    const row = block?.parentElement;
+    const toolbar = photoToolbarRef.current;
+    const wrapper = wrapperRef.current;
+    if (!row || !toolbar || !wrapper) { setPhotoToolbarPosition(null); return; }
+    function position() {
+      if (!row || !toolbar || !wrapper) return;
+      row.style.paddingTop = `${toolbar.offsetHeight + 8}px`;
+      const bounds = row.getBoundingClientRect();
+      const origin = wrapper.getBoundingClientRect();
+      const next = { top: bounds.top - origin.top - wrapper.clientTop, left: bounds.left - origin.left - wrapper.clientLeft, width: bounds.width };
+      setPhotoToolbarPosition((previous) => previous && previous.top === next.top && previous.left === next.left && previous.width === next.width ? previous : next);
+    }
+    position();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(position);
+    observer?.observe(toolbar); observer?.observe(wrapper);
+    return () => { observer?.disconnect(); row.style.removeProperty("padding-top"); };
+  }, [selectedBlockIndex, selectedIndex, cropping, value, revision]);
 
   function emit() {
     onChange(sanitizeHtml(editorRef.current?.innerHTML ?? ""));
@@ -195,6 +219,15 @@ export default function RichTextEditor({
     updatePhotoSize(index, "contain", 100);
   }
 
+  function resetPhoto(index: number) {
+    const image = editorRef.current?.querySelectorAll("img")[index];
+    if (!image) return;
+    image.setAttribute("data-focus", "50 50");
+    image.removeAttribute("data-fit"); image.removeAttribute("data-zoom");
+    applyInlinePhotoPresentation(editorRef.current!);
+    emit();
+  }
+
   /** Загружает обрезанную копию и подменяет адрес. Оригинал на диске остаётся. */
   async function applyCrop(blob: Blob) {
     const image = selectedNode();
@@ -235,7 +268,7 @@ export default function RichTextEditor({
   }));
 
   return (
-    <div className="admin-editor">
+    <div ref={wrapperRef} className="admin-editor">
       <div
         className="admin-editor-toolbar"
         role="toolbar"
@@ -293,6 +326,8 @@ export default function RichTextEditor({
       </div>
 
       {!compact && <p className="border-b border-border px-3 py-2 text-xs text-muted-foreground">Перетащите «Картинка» в текст или нажмите кнопку. Фото можно загрузить в блок с компьютера; чтобы разместить ещё одно рядом, выберите блок и нажмите «Добавить справа».</p>}
+      {selectedBlock && <div ref={photoToolbarRef} aria-label="Редактирование выбранного фото" className="absolute z-20 rounded border border-accent bg-card shadow-sm"
+        style={photoToolbarPosition ? { ...photoToolbarPosition } : { visibility: "hidden", width: "calc(100% - 2rem)" }}>
       {selectedBlock && !cropping && (
         <div className="border-b border-border bg-secondary/40 p-3 flex flex-wrap items-center gap-2 text-xs">
           <button type="button" disabled={uploading} className="rounded border border-border px-2 py-1" onClick={() => chooseFile(selectedBlock)}>{selectedBlock.querySelector("img") ? "Заменить фото" : "Загрузить фото"}</button>
@@ -366,6 +401,11 @@ export default function RichTextEditor({
               </button>
               <button
                 type="button"
+                onClick={() => selectedIndex !== null && resetPhoto(selectedIndex)}
+                className="rounded border border-border px-2 py-1 text-[11px] text-accent"
+              >Сбросить настройки фото</button>
+              <button
+                type="button"
                 onClick={() => { setSelectedIndex(null); setSelectedBlockIndex(null); selectedBlockRef.current = null; }}
                 className="rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:border-accent"
               >
@@ -375,6 +415,7 @@ export default function RichTextEditor({
           </div>
         </div>
       )}
+      </div>}
 
       <div
         ref={editorRef}
@@ -424,7 +465,7 @@ export default function RichTextEditor({
         data-placeholder="Введите текст..."
         className={`admin-editor-content ${compact ? "min-h-[150px]" : "min-h-[320px]"}`}
       />
-      <InlinePhotoFocusPanel photos={photos} disabled={uploading} onChange={updatePhotoFocus} onSizeChange={updatePhotoSize} onRestore={restorePhoto} />
+      <InlinePhotoFocusPanel photos={photos} disabled={uploading} onChange={updatePhotoFocus} onSizeChange={updatePhotoSize} onRestore={restorePhoto} onReset={resetPhoto} />
     </div>
   );
 }
