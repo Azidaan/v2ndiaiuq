@@ -1,5 +1,5 @@
 import type { KeyboardEvent, MouseEvent } from "react";
-import { DEFAULT_FOCUS, resolveFraming, type ImageFocus, type ImageFraming, type ImageSlot } from "./SafeImage";
+import { DEFAULT_FOCUS, NEW_IMAGE_FOCUS, resolveFraming, type ImageFocus, type ImageFraming, type ImageSlot } from "./SafeImage";
 import FramedImage from "./FramedImage";
 
 const PREVIEWS: { slot: ImageSlot; label: string; ratio: string }[] = [
@@ -34,7 +34,7 @@ export default function ImageFocusPicker({ src, focus, onChange }: {
     <div className="mb-2 flex items-center justify-between gap-2">
       <span className="text-xs font-semibold">Обложка: отдельный кадр для каждого места</span>
     </div>
-    <p className="mb-3 text-xs text-muted-foreground">У каждого вида своя точка и масштаб. «Целиком» при 100% показывает весь снимок; свободное место заполняется фоном. Сохраните новость, чтобы применить настройки.</p>
+    <p className="mb-3 text-xs text-muted-foreground">Синяя рамка показывает точную границу кадра на сайте: всё за ней обрезается. «Целиком» при 100% показывает весь снимок. Сохраните новость, чтобы применить настройки.</p>
     <div className="flex max-w-[620px] flex-col gap-4">
       {PREVIEWS.map(({slot, label, ratio}) => {
         const point = focus?.variants?.[slot] ?? focus ?? DEFAULT_FOCUS;
@@ -42,7 +42,7 @@ export default function ImageFocusPicker({ src, focus, onChange }: {
           <div className="mb-2 flex items-center justify-between gap-3">
             <p className="text-xs font-semibold">{label}</p>
             <button type="button" aria-label={`Сбросить настройки обложки: ${label}`}
-              onClick={() => change(slot, { ...DEFAULT_FOCUS, fit: slot === "tile" ? "contain" : "cover", zoom: 100 })}
+              onClick={() => change(slot, { ...NEW_IMAGE_FOCUS })}
               className="text-xs text-accent hover:underline">Сбросить этот кадр</button>
           </div>
           <p className="mb-2 text-[11px] text-muted-foreground">1. Точка на исходном фото</p>
@@ -60,12 +60,12 @@ export default function ImageFocusPicker({ src, focus, onChange }: {
             <input type="range" min="50" max="200" step="5" aria-label={`Масштаб обложки: ${label}`} value={point.zoom ?? 100} onChange={(event) => change(slot, { zoom: Number(event.target.value) })} className="mt-1 block w-full accent-accent" />
           </label>
           <p className="mb-2 mt-3 text-[11px] font-semibold">2. Так будет выглядеть на сайте</p>
-          <div aria-label={`Предпросмотр обложки: ${label}`} className="relative mt-3 overflow-hidden rounded" style={{ aspectRatio: ratio }}>
+          <div aria-label={`Предпросмотр обложки: ${label}`} className="admin-photo-preview relative mt-3 overflow-hidden rounded" style={{ aspectRatio: ratio }}>
             <FramedImage src={src} alt="" className="absolute inset-0 block h-full w-full" framing={resolveFraming(focus, slot)} />
           </div>
           <p className="mt-2 text-[11px] text-muted-foreground">{(point.fit ?? (slot === "tile" ? "contain" : "cover")) === "contain" && (point.zoom ?? 100) <= 100
             ? "Фото целиком. Точка меняет положение в свободном пространстве рамки."
-            : "Кадр обновляется сразу. Если фото совпадает с рамкой по пропорциям, при 100% обрезки нет."}</p>
+            : "Края фото за синей рамкой обрезаются. Чтобы сохранить весь снимок, нажмите «Показать целиком · 100%»."}</p>
           <button type="button" onClick={() => change(slot, { fit: "contain", zoom: 100, x: .5, y: .5 })} className="mt-2 text-[11px] text-accent hover:underline">Показать целиком · 100%</button>
         </div>;
       })}

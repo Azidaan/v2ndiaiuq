@@ -143,6 +143,7 @@ export default function RichTextEditor({
       if (!liveBlock) return;
       const image = document.createElement("img"); image.src = url; image.alt = "";
       image.setAttribute("data-focus", "50 50"); image.setAttribute("data-original", url);
+      image.setAttribute("data-fit", "contain"); image.setAttribute("data-zoom", "100");
       liveBlock.querySelector("img")?.remove(); liveBlock.prepend(image);
       selectBlock(liveBlock); emit();
     } catch (reason) {
@@ -223,7 +224,7 @@ export default function RichTextEditor({
     const image = editorRef.current?.querySelectorAll("img")[index];
     if (!image) return;
     image.setAttribute("data-focus", "50 50");
-    image.removeAttribute("data-fit"); image.removeAttribute("data-zoom");
+    image.setAttribute("data-fit", "contain"); image.setAttribute("data-zoom", "100");
     applyInlinePhotoPresentation(editorRef.current!);
     emit();
   }

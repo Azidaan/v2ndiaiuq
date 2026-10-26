@@ -3,7 +3,7 @@ import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vitest";
 import ImageFocusPicker from "./ImageFocusPicker";
-import SafeImage, { framingStyle, parseFocus, type ImageFocus } from "./SafeImage";
+import SafeImage, { framingStyle, NEW_IMAGE_FOCUS, parseFocus, resolveFraming, type ImageFocus } from "./SafeImage";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 describe("independent cover frames", () => {
@@ -25,7 +25,7 @@ describe("independent cover frames", () => {
       expect(restored?.variants?.slider?.x).toBe(.52);
       expect(restored?.variants?.tile).toEqual({ x: .5, y: .3, fit: "contain", zoom: 100 });
       await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="Сбросить настройки обложки: Слайдер"]')!.click());
-      expect(saved?.variants?.slider).toEqual({ x: .5, y: .3, fit: "cover", zoom: 100 });
+      expect(saved?.variants?.slider).toEqual({ x: .5, y: .5, fit: "contain", zoom: 100 });
       expect(saved?.variants?.tile).toEqual(restored?.variants?.tile);
       expect(framingStyle(restored, "article").objectFit).toBe("cover");
       await act(async () => root.render(<><SafeImage src="/uploads/a.jpg" alt="tile" slot="tile" focus={restored} /><SafeImage src="/uploads/a.jpg" alt="slider" slot="slider" focus={restored} /></>));
@@ -39,6 +39,13 @@ describe("independent cover frames", () => {
     expect(focus?.variants?.tile).toEqual({ x: 1, y: 0, zoom: 200, fit: "contain" });
     expect(focus?.variants?.card).toBeUndefined();
     expect(framingStyle(focus, "tile").transform).toBe("scale(2)");
+  });
+  it("uses whole at 100% for new cover images without changing the fallback for old images", () => {
+    for (const slot of ["slider", "article", "card", "tile"] as const) {
+      expect(resolveFraming(NEW_IMAGE_FOCUS, slot)).toMatchObject({ fit: "contain", zoom: 100 });
+    }
+    expect(resolveFraming(undefined, "slider").fit).toBe("cover");
+    expect(resolveFraming({ x: .2, y: .8, zoom: 150, fit: "cover" }, "article")).toMatchObject({ x: .2, y: .8, zoom: 150, fit: "cover" });
   });
   it("uses the entire source at 80% in both admin preview and public image after loading", async () => {
     const host = document.createElement("div"); document.body.append(host);

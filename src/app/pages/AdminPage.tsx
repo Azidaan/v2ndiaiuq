@@ -37,7 +37,7 @@ import {
 import ImageFocusPicker from "../components/ui/ImageFocusPicker";
 import RichTextEditor from "../components/admin/RichTextEditor";
 import LegacyNewsSyncPanel from "../components/admin/LegacyNewsSyncPanel";
-import { parseFocus } from "../components/ui/SafeImage";
+import { NEW_IMAGE_FOCUS, parseFocus } from "../components/ui/SafeImage";
 
 export default function AdminPage() {
   const [session, setSession] = useState<AdminSession | null>(null);
@@ -576,12 +576,17 @@ function Editor({
   onSaved: () => void;
   onReviewed: (item: ManagedContent) => void;
 }) {
-  const [form, setForm] = useState(initial);
+  const [form, setForm] = useState(() => !initial.id && initial.type === "news"
+    ? { ...initial, metadata: { ...initial.metadata, focus: initial.metadata.focus ?? { ...NEW_IMAGE_FOCUS } } }
+    : initial);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const update = (key: keyof ManagedContent, value: unknown) =>
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => ({ ...current, [key]: value,
+      metadata: key === "image_url" && value && value !== current.image_url && current.type === "news"
+        ? { ...current.metadata, focus: { ...NEW_IMAGE_FOCUS } } : current.metadata,
+    }));
   const updateMetadata = (key: string, value: unknown) =>
     setForm((current) => ({
       ...current,

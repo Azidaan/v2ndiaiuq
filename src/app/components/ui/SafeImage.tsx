@@ -14,6 +14,8 @@ export type ImageFocus = ImageFraming & { variants?: Partial<Record<ImageSlot, I
  * Значение подобрано как компромисс для контейнеров от 48 до 420 px высотой.
  */
 export const DEFAULT_FOCUS: ImageFocus = { x: 0.5, y: 0.3 };
+/** Saved explicitly only for a new image; existing articles retain their framing. */
+export const NEW_IMAGE_FOCUS: ImageFocus = { x: 0.5, y: 0.5, fit: "contain", zoom: 100 };
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
 

@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import RichTextEditor from "./RichTextEditor";
 import SafeHtml from "../SafeHtml";
 import { sanitizeHtml } from "../../lib/sanitize";
+import { fileStorage } from "../../lib/fileStorage";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let root: Root, host: HTMLDivElement;
@@ -121,12 +122,26 @@ describe("independent photo focus controls", () => {
     await mount(initial.replace('data-focus="20 30"', 'data-focus="20 30" data-fit="cover" data-zoom="150"').replace('data-focus="70 80"', 'data-focus="70 80" data-fit="contain" data-zoom="95"'));
     await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="Сбросить настройки фото 1"]')!.click());
     expect(photos().map((i) => [i.getAttribute("src"), i.getAttribute("data-focus"), i.getAttribute("data-fit"), i.getAttribute("data-zoom")])).toEqual([
-      ["/uploads/a.jpg", "50 50", null, null], ["/uploads/b.jpg", "70 80", "contain", "95"],
+      ["/uploads/a.jpg", "50 50", "contain", "100"], ["/uploads/b.jpg", "70 80", "contain", "95"],
     ]);
     await act(async () => photos()[1].click());
     expect(host.querySelector('[aria-label="Редактирование выбранного фото"]')).not.toBeNull();
     // Editor-only controls and reserved space never become article content.
     expect(saved).not.toContain("Редактирование выбранного фото");
     expect(saved).not.toContain("padding-top");
+  });
+  it("initializes only newly uploaded photos as whole at 100%, leaving existing photos untouched", async () => {
+    const upload = vi.spyOn(fileStorage, "upload").mockResolvedValue("/uploads/new.jpg");
+    try {
+      await mount();
+      expect(photos().every((image) => !image.hasAttribute("data-fit") && !image.hasAttribute("data-zoom"))).toBe(true);
+      await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="Добавить блок картинки"]')!.click());
+      const input = host.querySelector<HTMLInputElement>('input[type="file"]')!;
+      Object.defineProperty(input, "files", { value: [new File(["photo"], "new.jpg", { type: "image/jpeg" })] });
+      await act(async () => input.dispatchEvent(new Event("change", { bubbles: true })));
+      expect(photos().map((image) => [image.getAttribute("src"), image.getAttribute("data-fit"), image.getAttribute("data-zoom")])).toEqual([
+        ["/uploads/a.jpg", null, null], ["/uploads/b.jpg", null, null], ["/uploads/new.jpg", "contain", "100"],
+      ]);
+    } finally { upload.mockRestore(); }
   });
 });

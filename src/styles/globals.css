@@ -53,6 +53,17 @@
     transition: border-color 150ms ease, box-shadow 150ms ease;
   }
 
+  /* Editor-only overlay: it marks the exact clipping edge without shrinking the image box. */
+  .admin-photo-preview::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 2px var(--accent), inset 0 0 0 3px #ffffff;
+  }
+
   .admin-editor:hover {
     border-color: #64748b;
   }
