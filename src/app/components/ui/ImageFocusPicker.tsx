@@ -3,10 +3,10 @@ import { DEFAULT_FOCUS, NEW_IMAGE_FOCUS, resolveFraming, type ImageFocus, type I
 import FramedImage from "./FramedImage";
 
 const PREVIEWS: { slot: ImageSlot; label: string; description: string; ratio: string }[] = [
-  { slot: "slider", label: "Слайдер на главной", description: "Большой переключающийся блок в верхней части главной страницы.", ratio: "600 / 280" },
-  { slot: "article", label: "внутри самой новости при открытии", description: "Большая обложка над основным текстом открытой новости.", ratio: "940 / 480" },
-  { slot: "card", label: "Карточка в общей разделе новостей", description: "Изображение в сетке на странице со всеми новостями.", ratio: "400 / 176" },
+  { slot: "slider", label: "Большой главный слайдер с одной новостью", description: "Большой переключающийся блок в верхней части главной страницы.", ratio: "600 / 280" },
   { slot: "tile", label: "Слайдер с 3 новостями", description: "Три новости в блоке «Новости института» под слайдером главной страницы.", ratio: "2 / 1" },
+  { slot: "article", label: "Внутри самой новости при открытии", description: "Большая обложка над основным текстом открытой новости.", ratio: "940 / 480" },
+  { slot: "card", label: "Карточка в общем разделе новостей", description: "Изображение в сетке на странице со всеми новостями.", ratio: "400 / 176" },
 ];
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
 
