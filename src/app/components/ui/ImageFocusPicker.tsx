@@ -4,9 +4,9 @@ import FramedImage from "./FramedImage";
 
 const PREVIEWS: { slot: ImageSlot; label: string; description: string; ratio: string }[] = [
   { slot: "slider", label: "Слайдер на главной", description: "Большой переключающийся блок в верхней части главной страницы.", ratio: "600 / 280" },
-  { slot: "article", label: "Внутри самой новости", description: "Большая обложка над основным текстом открытой новости.", ratio: "940 / 480" },
-  { slot: "card", label: "Карточка в разделе «Новости»", description: "Изображение в сетке на странице со всеми новостями.", ratio: "400 / 176" },
-  { slot: "tile", label: "Лента на главной", description: "Три новости в блоке «Новости института» под слайдером главной страницы.", ratio: "2 / 1" },
+  { slot: "article", label: "внутри самой новости при открытии", description: "Большая обложка над основным текстом открытой новости.", ratio: "940 / 480" },
+  { slot: "card", label: "Карточка в общей разделе новостей", description: "Изображение в сетке на странице со всеми новостями.", ratio: "400 / 176" },
+  { slot: "tile", label: "Слайдер с 3 новостями", description: "Три новости в блоке «Новости института» под слайдером главной страницы.", ratio: "2 / 1" },
 ];
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
 
@@ -40,7 +40,7 @@ export default function ImageFocusPicker({ src, focus, onChange }: {
         const point = focus?.variants?.[slot] ?? focus ?? DEFAULT_FOCUS;
         return <div key={slot} className="min-w-0 rounded border border-border bg-card p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold">{label}</p>
+            <p className="text-xs font-semibold text-red-600">{label}</p>
             <button type="button" aria-label={`Сбросить настройки обложки: ${label}`}
               onClick={() => change(slot, { ...NEW_IMAGE_FOCUS })}
               className="text-xs text-accent hover:underline">Сбросить этот кадр</button>

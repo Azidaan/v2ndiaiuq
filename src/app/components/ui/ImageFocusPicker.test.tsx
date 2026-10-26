@@ -17,7 +17,7 @@ describe("independent cover frames", () => {
     }
     try {
       await act(async () => root.render(<Form />));
-      const fit = host.querySelector<HTMLSelectElement>('select[aria-label="Вид обложки: Лента на главной"]')!;
+      const fit = host.querySelector<HTMLSelectElement>('select[aria-label="Вид обложки: Слайдер с 3 новостями"]')!;
       await act(async () => { fit.value = "contain"; fit.dispatchEvent(new Event("change", { bubbles: true })); });
       const focusButton = host.querySelector<HTMLButtonElement>('button[aria-label="Точка кадрирования: Слайдер на главной"]')!;
       await act(async () => { focusButton.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })); });
