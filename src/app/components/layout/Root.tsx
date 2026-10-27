@@ -3,13 +3,15 @@ import Header from "./Header";
 import Footer from "./Footer";
 import CookieConsent from "./CookieConsent";
 import OctopusPets from "../../features/octopus/OctopusPets";
+import NeuralBackground from "./NeuralBackground";
 
 export default function Root() {
   return (
     <div className="min-h-screen flex flex-col bg-background" style={{ fontFamily: "var(--font-body)" }}>
       <Header />
-      <main className="flex-1">
-        <Outlet />
+      <main className="site-main flex-1">
+        <NeuralBackground />
+        <div className="site-page-content"><Outlet /></div>
       </main>
       <Footer />
       <CookieConsent />

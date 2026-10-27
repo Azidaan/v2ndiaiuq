@@ -335,7 +335,7 @@ export default function HomePage() {
   return (
     <div style={{ fontFamily: "var(--font-body)" }}>
       {/* HERO */}
-      <section className="bg-background py-5">
+      <section className="py-5">
         <div className="max-w-[1280px] mx-auto px-4">
           {newsLoading ? <div role="status" className="min-h-[360px] rounded border border-border bg-card p-6 text-sm text-muted-foreground">Загрузка новостей...</div>
             : newsError ? <p role="alert" className="py-10 text-center text-sm text-muted-foreground">Не удалось загрузить новости. Обновите страницу.</p>
@@ -344,14 +344,14 @@ export default function HomePage() {
       </section>
 
       {/* NEWS */}
-      <section className="bg-background pb-5">
+      <section className="pb-5">
         <div className="max-w-[1280px] mx-auto px-4">
           <NewsCarousel news={news} />
         </div>
       </section>
 
       {/* НАУКА.РФ BANNER */}
-      <section className="bg-background pb-5">
+      <section className="pb-5">
         <div className="max-w-[1280px] mx-auto px-4">
           <div className="rounded overflow-hidden bg-[#141830] text-white flex flex-col sm:flex-row">
             <div className="flex-1 p-6 flex flex-col justify-between gap-4">
@@ -377,7 +377,7 @@ export default function HomePage() {
       </section>
 
       {/* QUICK ACCESS */}
-      <section className="bg-secondary py-8">
+      <section className="home-quick-access py-8">
         <div className="max-w-[1280px] mx-auto px-4">
           <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-5">Быстрый доступ</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
