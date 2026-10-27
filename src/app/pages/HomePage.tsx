@@ -18,7 +18,7 @@ const CATEGORY_COLORS: Record<NewsCategory, string> = {
 };
 
 const HERO_TRANSITION_MS = 900;
-const QUICK_ACCESS_CARD_CLASS = "flex flex-col items-center gap-2 bg-card p-4 rounded border border-border shadow-[0_2px_10px_rgba(26,58,107,0.04)] hover:border-accent hover:shadow-sm group transition-all text-center";
+const QUICK_ACCESS_CARD_CLASS = "home-shortcut flex flex-col items-center gap-2 bg-card p-4 border border-border shadow-[0_2px_10px_rgba(26,58,107,0.04)] hover:border-accent hover:shadow-sm group transition-all text-center";
 
 type QuickAccessItem = {
   icon: LucideIcon;
@@ -36,9 +36,10 @@ const QUICK_ACCESS_ITEMS: QuickAccessItem[] = [
   { icon: Newspaper, label: "Вакансии", href: "/vacancies" },
 ];
 
-function QuickAccessCard({ icon: Icon, label, href, external = false }: QuickAccessItem) {
+function QuickAccessCard({ icon: Icon, label, href, external = false, index }: QuickAccessItem & { index: number }) {
   const content = (
     <>
+      <span className="home-shortcut-index" aria-hidden="true"><span>{String(index + 1).padStart(2, "0")}</span><ArrowRight size={13} /></span>
       <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-colors">
         <Icon size={18} className="text-primary group-hover:text-white transition-colors" aria-hidden="true" />
       </div>
@@ -78,13 +79,13 @@ function HeroSlideCard({ item, slides, activeIndex, exiting = false, wide = fals
       className={`${exiting ? "hero-slide-exit pointer-events-none" : "hero-slide-enter"} flex h-full min-h-[360px] flex-col sm:flex-row`}
       aria-hidden={exiting || undefined}
     >
-      <div className="flex-1 min-w-0 p-5 sm:p-6 flex flex-col justify-between">
+      <div className="hero-slide-copy flex-1 min-w-0 p-5 sm:p-6 flex flex-col justify-between">
         <div className={wide ? "lg:max-w-[70ch]" : undefined}>
           <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded mb-3 ${CATEGORY_COLORS[item.category]}`}>
             {CATEGORY_LABELS[item.category]}
           </span>
           <p className="text-xs text-muted-foreground mb-2">{formatDate(item.date)}</p>
-          <h2 className={`text-lg ${wide ? "lg:text-xl" : ""} font-bold leading-snug text-foreground mb-3`} style={{ fontFamily: "var(--font-display)" }}>
+          <h2 className="hero-slide-title font-bold leading-snug text-foreground mb-3" style={{ fontFamily: "var(--font-display)" }}>
             {item.title}
           </h2>
           <SafeHtml html={item.excerpt} className="text-sm text-muted-foreground leading-relaxed line-clamp-4" />
@@ -177,7 +178,7 @@ function HeroSlider({ news, blocks }: { news: HomeNewsItem[]; blocks: Record<str
   return (
     <div className={`flex ${showCards ? "lg:gap-5" : ""}`}>
       {/* Main slide */}
-      <div className="hero-slider grid relative flex-1 min-w-0 bg-white rounded-sm overflow-hidden shadow-sm border border-border min-h-[360px]"
+      <div className="hero-slider grid relative flex-1 min-w-0 overflow-hidden min-h-[360px]"
         onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)}
         onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false); }}>
         {slides.map((item, index) => (
@@ -244,11 +245,11 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
   const visibleNews = news.length > 0 ? Array.from({ length: visibleCount }, (_, index) => news[(active + index) % news.length]) : [];
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
+    <div className="home-news">
+      <div className="home-section-heading flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Newspaper size={16} className="text-primary" aria-hidden="true" />
-          <h2 className="text-xs font-bold uppercase tracking-widest text-primary">Новости института</h2>
+          <span className="home-section-index" aria-hidden="true">01</span>
+          <h2>Новости института</h2>
         </div>
         <div className="flex items-center gap-2">
           <Link to="/news" className="text-xs text-accent hover:underline flex items-center gap-1 mr-1">
@@ -276,7 +277,7 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
           <Link
             key={`${active}-${item.id}`}
             to={`/news/${item.id}`}
-            className="group flex min-w-0 flex-col overflow-hidden rounded border border-border bg-card transition-colors hover:border-accent"
+            className="home-news-card group flex min-w-0 flex-col overflow-hidden border border-border bg-card transition-colors hover:border-accent"
           >
             <div className="aspect-[2/1] w-full shrink-0 overflow-hidden">
               {item.image && (
@@ -292,8 +293,8 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
               )}
             </div>
             <div className="min-w-0 p-4">
-              <p className="mb-1.5 text-xs text-muted-foreground">{formatDate(item.date)}</p>
-              <p className="text-sm leading-snug text-foreground transition-colors group-hover:text-accent line-clamp-3">
+              <p className="home-news-date mb-1.5 text-xs">{formatDate(item.date)}</p>
+              <p className="home-news-title leading-snug text-foreground transition-colors group-hover:text-accent line-clamp-3">
                 {item.title}
               </p>
             </div>
@@ -333,10 +334,17 @@ export default function HomePage() {
     focus: parseFocus(item.metadata.focus),
   }));
   return (
-    <div style={{ fontFamily: "var(--font-body)" }}>
+    <div className="home-page" style={{ fontFamily: "var(--font-body)" }}>
       {/* HERO */}
-      <section className="py-5">
+      <section className="home-hero-section py-5">
         <div className="max-w-[1280px] mx-auto px-4">
+          <div className="home-masthead">
+            <div>
+              <p className="home-kicker">ФГБНУ «ИПИИ»</p>
+              <h1>Институт проблем<br className="hidden sm:block" /> искусственного интеллекта</h1>
+            </div>
+            <p className="home-masthead-note">Исследования и разработки.<br /> Образование и научный диалог.</p>
+          </div>
           {newsLoading ? <div role="status" className="min-h-[360px] rounded border border-border bg-card p-6 text-sm text-muted-foreground">Загрузка новостей...</div>
             : newsError ? <p role="alert" className="py-10 text-center text-sm text-muted-foreground">Не удалось загрузить новости. Обновите страницу.</p>
               : <HeroSlider news={news} blocks={blocks} />}
@@ -344,16 +352,16 @@ export default function HomePage() {
       </section>
 
       {/* NEWS */}
-      <section className="pb-5">
+      <section className="home-news-section pb-5">
         <div className="max-w-[1280px] mx-auto px-4">
           <NewsCarousel news={news} />
         </div>
       </section>
 
       {/* НАУКА.РФ BANNER */}
-      <section className="pb-5">
+      <section className="home-science-section pb-5">
         <div className="max-w-[1280px] mx-auto px-4">
-          <div className="rounded overflow-hidden bg-[#141830] text-white flex flex-col sm:flex-row">
+          <div className="home-science-card overflow-hidden text-white flex flex-col sm:flex-row">
             <div className="flex-1 p-6 flex flex-col justify-between gap-4">
               <div className="max-w-[70px] sm:max-w-[100px]">
                 <img src={naukaRfLogo} alt="2022–2031 Десятилетие науки и технологий" className="w-full h-auto object-contain" />
@@ -369,7 +377,7 @@ export default function HomePage() {
               </a>
             </div>
             <div className="w-px bg-white/10 hidden sm:block" />
-            <div className="flex-1 p-6 flex items-center bg-[#0f1225]">
+            <div className="home-science-description flex-1 p-6 flex items-center">
               <p className="text-[13px] text-gray-300 leading-relaxed">{blocks["science-right"]?.summary || "Десятилетие науки и технологий включает комплекс инициатив, проектов и мероприятий — направленных на усиление роли науки в решении важнейших задач развития общества и страны."}</p>
             </div>
           </div>
@@ -379,9 +387,9 @@ export default function HomePage() {
       {/* QUICK ACCESS */}
       <section className="home-quick-access py-8">
         <div className="max-w-[1280px] mx-auto px-4">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-5">Быстрый доступ</h2>
+          <div className="home-section-heading mb-5"><span className="home-section-index" aria-hidden="true">02</span><h2>Быстрый доступ</h2></div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {QUICK_ACCESS_ITEMS.map((item) => <QuickAccessCard key={item.href} {...item} />)}
+            {QUICK_ACCESS_ITEMS.map((item, index) => <QuickAccessCard key={item.href} {...item} index={index} />)}
           </div>
         </div>
       </section>

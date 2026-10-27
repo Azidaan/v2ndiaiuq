@@ -26,6 +26,7 @@ function Network() {
 export default function NeuralBackground() {
   const ref = useRef<HTMLDivElement>(null);
   const patternId = useId();
+  const contourId = useId();
   const [pulse, setPulse] = useState<{ x: number; y: number }>();
 
   useEffect(() => {
@@ -60,6 +61,21 @@ export default function NeuralBackground() {
   }, []);
 
   return <div ref={ref} className="neural-background" aria-hidden="true">
+    <svg className="neural-background-contours" width="100%" height="100%" focusable="false">
+      <defs>
+        <pattern id={contourId} width="760" height="560" patternUnits="userSpaceOnUse">
+          <g fill="none" stroke="currentColor" strokeWidth="0.7">
+            {Array.from({ length: 26 }, (_, i) => {
+              const y = i * 28 - 84;
+              return <path key={i} d={`M0 ${y} C126 ${y - 44},253 ${y + 64},380 ${y + 12} S634 ${y + 44},760 ${y}`} />;
+            })}
+          </g>
+          <path d="M0 250 C126 206,253 314,380 262 S634 294,760 250" fill="none" stroke="var(--primary)" strokeWidth="0.8" strokeDasharray="3 7" />
+          <g fill="var(--home-copper, currentColor)"><circle cx="171" cy="254.5" r="3" /><circle cx="470" cy="244.5" r="3" /></g>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill={`url(#${contourId})`} />
+    </svg>
     <svg className="neural-background-pattern" width="100%" height="100%" focusable="false">
       <defs>
         <pattern id={patternId} width="490" height="440" patternUnits="userSpaceOnUse">
