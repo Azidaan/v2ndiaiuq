@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router";
-import { Calendar, Tag, ArrowLeft } from "lucide-react";
+import { Calendar, Tag, ArrowLeft, ArrowRight, ChevronRight } from "lucide-react";
 import Breadcrumbs from "../components/layout/Breadcrumbs";
 import { formatDate, CATEGORY_LABELS } from "../data";
 import { useManagedContent } from "../lib/content";
@@ -38,41 +38,40 @@ export default function ArticlePage() {
   const showIntro = intro && intro !== item.title && !htmlToPlainText(item.body).startsWith(intro);
 
   return (
-    <div style={{ fontFamily: "var(--font-body)" }}>
+    <div className="news-detail" style={{ fontFamily: "var(--font-body)" }}>
       <Breadcrumbs crumbs={[
         { label: "Новости", path: "/news" },
         { label: item.title.slice(0, 40) + (item.title.length > 40 ? "…" : "") },
       ]} />
 
-      <div className="max-w-[1000px] mx-auto px-4 py-6">
-        <div className="flex flex-col gap-8">
+      <div className="news-detail-layout">
           {/* Article body */}
-          <article className="news-article w-full min-w-0">
-            <Link to="/news" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-accent transition-colors mb-5">
+          <article className="news-article news-detail-paper">
+            <Link to="/news" className="news-detail-back">
               <ArrowLeft size={13} aria-hidden="true" /> К списку новостей
             </Link>
 
-            <div className="flex items-center gap-3 mb-4 flex-wrap">
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-primary uppercase tracking-wider">
-                <Tag size={11} aria-hidden="true" /> {CATEGORY_LABELS[item.category]}
-              </span>
-              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                <Calendar size={11} aria-hidden="true" /> {formatDate(item.date)}
-              </span>
-            </div>
+            <header className="news-detail-header">
+              <div className="news-detail-meta">
+                <span className="news-detail-category">
+                  <Tag size={11} aria-hidden="true" /> {CATEGORY_LABELS[item.category]}
+                </span>
+                <time dateTime={item.date} className="inline-flex items-center gap-1.5">
+                  <Calendar size={11} aria-hidden="true" /> {formatDate(item.date)}
+                </time>
+              </div>
 
-            <h1 className="text-2xl font-bold text-foreground mb-5 leading-snug" style={{ fontFamily: "var(--font-display)" }}>
-              {item.title}
-            </h1>
+              <h1>{item.title}</h1>
+            </header>
 
             {item.image && !item.hideArticleCover && (
-              <div className="relative mb-6 aspect-[940/480] w-full overflow-hidden rounded">
+              <div className="news-detail-cover relative aspect-[940/480] w-full overflow-hidden">
                 <SafeImage src={item.image} alt={item.title} focus={item.focus} slot="article" className="absolute inset-0 h-full w-full object-cover" />
               </div>
             )}
 
-            <div className="prose prose-sm max-w-none text-foreground leading-relaxed">
-              {showIntro && <SafeHtml html={item.excerpt} className="text-base font-medium mb-4" />}
+            <div className="prose news-detail-body">
+              {showIntro && <SafeHtml html={item.excerpt} className="news-detail-intro" />}
               <SafeHtml html={item.body} />
             </div>
 
@@ -85,35 +84,16 @@ export default function ArticlePage() {
                 ))}
               </div>
             )}
+            <footer className="news-detail-footer">
+              <Link to="/news">Все новости института <ArrowRight size={16} aria-hidden="true" /></Link>
+            </footer>
           </article>
 
           {/* Sidebar */}
-          <aside className="grid w-full gap-5 md:grid-cols-2">
-            <div className="bg-card border border-border rounded p-4">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Похожие материалы</h2>
-              {related.length > 0 ? (
-                <div className="flex flex-col gap-3">
-                  {related.map((n) => (
-                    <Link
-                      key={n.id}
-                      to={`/news/${n.id}`}
-                      className="group block"
-                    >
-                      <p className="text-[11px] text-muted-foreground mb-0.5">{formatDate(n.date)}</p>
-                      <p className="text-[13px] text-foreground group-hover:text-accent transition-colors leading-snug">
-                        {n.title}
-                      </p>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">Нет похожих материалов.</p>
-              )}
-            </div>
-
-            <div className="bg-secondary border border-border rounded p-4">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Разделы сайта</h2>
-              <ul className="space-y-1.5">
+          <aside className="news-detail-sidebar" aria-label="Навигация по новостям и разделам сайта">
+            <nav className="news-detail-panel news-detail-sections" aria-labelledby="news-sections-heading">
+              <h2 id="news-sections-heading">Разделы сайта</h2>
+              <ul>
                 {[
                   { label: "Все новости", path: "/news" },
                   { label: "Наука", path: "/science" },
@@ -122,13 +102,35 @@ export default function ArticlePage() {
                   { label: "Конференции", path: "/science/events" },
                 ].map((l) => (
                   <li key={l.path}>
-                    <Link to={l.path} className="text-xs text-accent hover:underline">{l.label}</Link>
+                    <Link to={l.path}>{l.label}<ChevronRight size={14} aria-hidden="true" /></Link>
                   </li>
                 ))}
               </ul>
-            </div>
+            </nav>
+
+            <section className="news-detail-panel news-detail-related" aria-labelledby="news-related-heading">
+              <h2 id="news-related-heading">Похожие материалы</h2>
+              {related.length > 0 ? (
+                <div>
+                  {related.map((n) => (
+                    <Link
+                      key={n.id}
+                      to={`/news/${n.id}`}
+                      className="news-detail-related-link"
+                    >
+                      {n.image && <span className="news-detail-thumbnail"><SafeImage src={n.image} alt="" focus={n.focus} slot="card" className="absolute inset-0 h-full w-full" /></span>}
+                      <span className="min-w-0">
+                        <time dateTime={n.date}>{formatDate(n.date)}</time>
+                        <span className="news-detail-related-title">{n.title}</span>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Нет похожих материалов.</p>
+              )}
+            </section>
           </aside>
-        </div>
       </div>
     </div>
   );
