@@ -18,7 +18,7 @@ const CATEGORY_COLORS: Record<NewsCategory, string> = {
 };
 
 const HERO_TRANSITION_MS = 900;
-const QUICK_ACCESS_CARD_CLASS = "flex flex-col items-center gap-2 bg-card p-4 rounded border border-border hover:border-accent hover:shadow-sm group transition-all text-center";
+const QUICK_ACCESS_CARD_CLASS = "flex flex-col items-center gap-2 bg-card p-4 rounded border border-border shadow-[0_2px_10px_rgba(26,58,107,0.04)] hover:border-accent hover:shadow-sm group transition-all text-center";
 
 type QuickAccessItem = {
   icon: LucideIcon;
