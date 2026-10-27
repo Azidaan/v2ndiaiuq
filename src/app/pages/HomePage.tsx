@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router";
 import { ChevronRight, ChevronLeft, Newspaper, Calendar, BookOpen, ArrowRight, FileText, GraduationCap, FlaskConical, Building2, ExternalLink, type LucideIcon } from "lucide-react";
 import { formatDate, CATEGORY_LABELS, type NewsCategory, type NewsItem } from "../data";
@@ -17,7 +17,8 @@ const CATEGORY_COLORS: Record<NewsCategory, string> = {
   conference: "bg-purple-100 text-purple-700",
 };
 
-const HERO_TRANSITION_MS = 900;
+const HERO_TRANSITION_MS = 1500;
+const HERO_READING_MS = 6000;
 const QUICK_ACCESS_CARD_CLASS = "home-shortcut flex flex-col items-center gap-2 bg-card p-4 border border-border shadow-[0_2px_10px_rgba(26,58,107,0.04)] hover:border-accent hover:shadow-sm group transition-all text-center";
 
 type QuickAccessItem = {
@@ -65,6 +66,7 @@ type HeroSlideCardProps = {
   item: HomeNewsItem;
   slides: HomeNewsItem[];
   activeIndex: number;
+  active: boolean;
   exiting?: boolean;
   /** Боковая колонка скрыта — слайдер занимает всю ширину и раскладка меняется. */
   wide?: boolean;
@@ -73,14 +75,14 @@ type HeroSlideCardProps = {
   onNext: () => void;
 };
 
-function HeroSlideCard({ item, slides, activeIndex, exiting = false, wide = false, onSelect, onPrevious, onNext }: HeroSlideCardProps) {
+function HeroSlideCard({ item, slides, activeIndex, active, exiting = false, wide = false, onSelect, onPrevious, onNext }: HeroSlideCardProps) {
   return (
     <div
-      className={`${exiting ? "hero-slide-exit pointer-events-none" : "hero-slide-enter"} flex h-full min-h-[360px] flex-col sm:flex-row`}
+      className={`${active ? "hero-slide-active" : ""} ${exiting ? "pointer-events-none" : ""} flex h-full min-h-[360px] flex-col sm:flex-row`}
       aria-hidden={exiting || undefined}
     >
       <div className="hero-slide-copy flex-1 min-w-0 p-5 sm:p-6 flex flex-col justify-between">
-        <div className={wide ? "lg:max-w-[70ch]" : undefined}>
+        <div className={`hero-slide-body ${wide ? "lg:max-w-[70ch]" : ""}`}>
           <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded mb-3 ${CATEGORY_COLORS[item.category]}`}>
             {CATEGORY_LABELS[item.category]}
           </span>
@@ -125,7 +127,7 @@ function HeroSlideCard({ item, slides, activeIndex, exiting = false, wide = fals
         </div>
       </div>
       {item.image && (
-        <div className="relative aspect-[600/280] w-full shrink-0 self-stretch overflow-hidden sm:w-[600px] sm:max-w-[63%]">
+        <div className="hero-slide-image relative aspect-[600/280] w-full shrink-0 self-stretch overflow-hidden sm:w-[600px] sm:max-w-[63%]">
           <SafeImage
             src={item.image}
             alt={item.title}
@@ -156,7 +158,7 @@ function HeroSlider({ news, blocks }: { news: HomeNewsItem[]; blocks: Record<str
       const current = slideRef.current;
       setPreviousSlide(current);
       setSlide((current + 1) % slides.length);
-    }, 3000);
+    }, HERO_READING_MS);
 
     return () => window.clearInterval(timer);
   }, [slides.length, paused]);
@@ -178,13 +180,13 @@ function HeroSlider({ news, blocks }: { news: HomeNewsItem[]; blocks: Record<str
   return (
     <div className={`flex ${showCards ? "lg:gap-5" : ""}`}>
       {/* Main slide */}
-      <div className="hero-slider grid relative flex-1 min-w-0 overflow-hidden min-h-[360px]"
+      <div className="hero-slider grid relative flex-1 min-w-0 overflow-hidden min-h-[360px]" style={{ "--hero-transition-ms": `${HERO_TRANSITION_MS}ms` } as CSSProperties}
         onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)}
         onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false); }}>
         {slides.map((item, index) => (
           <div key={item.id} style={{ gridArea: "1 / 1", zIndex: index === previousSlide ? 2 : index === slide ? 1 : 0, visibility: index === slide || index === previousSlide ? "visible" : "hidden" }}
             aria-hidden={index !== slide || undefined} {...(index !== slide ? { inert: "" } : {})}>
-            <HeroSlideCard item={item} slides={slides} activeIndex={slide} exiting={index === previousSlide && index !== slide}
+            <HeroSlideCard item={item} slides={slides} activeIndex={slide} active={index === slide} exiting={index === previousSlide && index !== slide}
               wide={!showCards} onSelect={selectSlide} onPrevious={() => selectSlide(slide - 1)} onNext={() => selectSlide(slide + 1)} />
           </div>
         ))}
