@@ -1,23 +1,50 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import { CONTOUR_HEIGHT, CONTOUR_SPACING, CONTOUR_WIDTH, contourPath, snapNodesToContours, type NeuralPoint } from "../../lib/neuralContours";
 
-const NODES = [
-  [22, 115], [62, 45], [88, 165], [126, 92], [166, 32],
-  [180, 150], [222, 75], [265, 130], [290, 40],
-] as const;
-const EDGES = [[0, 1], [0, 2], [0, 3], [1, 3], [1, 4], [2, 3], [2, 5], [3, 4], [3, 5], [3, 6], [4, 6], [5, 6], [5, 7], [6, 7], [6, 8], [7, 8]];
-const SIGNALS = [[0, 3, 6, 8], [2, 5, 7], [1, 4, 6, 7]];
+type NeuralPattern = {
+  name: string;
+  nodes: readonly NeuralPoint[];
+  edges: readonly (readonly [number, number])[];
+  signals: readonly (readonly number[])[];
+};
+const PATTERNS: readonly NeuralPattern[] = [
+  {
+    name: "mesh",
+    nodes: [[22, 115], [62, 45], [88, 165], [126, 92], [166, 32], [180, 150], [222, 75], [265, 130], [290, 40]],
+    edges: [[0, 1], [0, 2], [0, 3], [1, 3], [1, 4], [2, 3], [2, 5], [3, 4], [3, 5], [3, 6], [4, 6], [5, 6], [5, 7], [6, 7], [6, 8], [7, 8]],
+    signals: [[0, 3, 6, 8], [2, 5, 7], [1, 4, 6, 7]],
+  },
+  {
+    name: "branches",
+    nodes: [[20, 150], [70, 110], [125, 80], [180, 50], [245, 25], [180, 130], [245, 170], [95, 180], [270, 100]],
+    edges: [[0, 1], [1, 2], [2, 3], [3, 4], [2, 5], [5, 6], [1, 7], [5, 8]],
+    signals: [[0, 1, 2, 3, 4], [0, 1, 2, 5, 6], [7, 1, 2, 5, 8]],
+  },
+  {
+    name: "chain",
+    nodes: [[18, 140], [55, 65], [95, 125], [130, 40], [165, 105], [200, 170], [235, 95], [275, 145], [300, 50]],
+    edges: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8]],
+    signals: [[0, 1, 2, 3, 4], [2, 3, 4, 5, 6], [4, 5, 6, 7, 8]],
+  },
+  {
+    name: "layers",
+    nodes: [[30, 40], [30, 105], [30, 170], [150, 30], [150, 100], [150, 180], [285, 65], [285, 150]],
+    edges: [[0, 3], [0, 4], [0, 5], [1, 3], [1, 4], [1, 5], [2, 3], [2, 4], [2, 5], [3, 6], [3, 7], [4, 6], [4, 7], [5, 6], [5, 7]],
+    signals: [[0, 3, 6], [1, 4, 7], [2, 5, 7]],
+  },
+];
 const COOLDOWN = 3500;
 const DURATION = 2600;
 // Content and controls never activate the decoration underneath them.
 const CONTENT = "a, button, input, textarea, select, label, article, aside, nav, [role='dialog'], .bg-card, .bg-white, .bg-secondary, .prose, h1, h2, h3, p, li, table, img, video, iframe";
 
-function Network() {
+function Network({ pattern = PATTERNS[0], nodes = pattern.nodes }: { pattern?: NeuralPattern; nodes?: readonly NeuralPoint[] }) {
   return <>
     <g fill="none" stroke="currentColor" strokeWidth="1">
-      {EDGES.map(([a, b]) => <path key={`${a}-${b}`} d={`M${NODES[a].join(",")} L${NODES[b].join(",")}`} />)}
+      {pattern.edges.map(([a, b]) => <path key={`${a}-${b}`} d={`M${nodes[a].join(",")} L${nodes[b].join(",")}`} />)}
     </g>
     <g fill="var(--background)" stroke="currentColor" strokeWidth="1.2">
-      {NODES.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i === 3 || i === 6 ? 3.5 : 2.5} />)}
+      {nodes.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i === 3 || i === 6 ? 3.5 : 2.5} />)}
     </g>
   </>;
 }
@@ -27,13 +54,14 @@ export default function NeuralBackground() {
   const ref = useRef<HTMLDivElement>(null);
   const patternId = useId();
   const contourId = useId();
-  const [pulse, setPulse] = useState<{ x: number; y: number }>();
+  const [pulse, setPulse] = useState<{ x: number; y: number; pattern: NeuralPattern; nodes: readonly NeuralPoint[] }>();
 
   useEffect(() => {
     const parent = ref.current?.parentElement;
     if (!parent || typeof window.matchMedia !== "function") return;
     const media = window.matchMedia("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)");
     let last = -Infinity;
+    let sequence = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     function clear() {
       clearTimeout(timer);
@@ -46,7 +74,9 @@ export default function NeuralBackground() {
       const x = event.clientX - rect.left, y = event.clientY - rect.top;
       if (x < 0 || x > rect.width || y < 0 || y > rect.height) return;
       last = Date.now();
-      setPulse({ x, y });
+      const pattern = PATTERNS[sequence++ % PATTERNS.length];
+      const nodes = parent!.closest(".site-shell--home") ? snapNodesToContours(pattern.nodes, [x - 160, y - 105]) : pattern.nodes;
+      setPulse({ x, y, pattern, nodes });
       timer = setTimeout(() => setPulse(undefined), DURATION);
     }
     parent.addEventListener("pointermove", move, { passive: true });
@@ -63,11 +93,10 @@ export default function NeuralBackground() {
   return <div ref={ref} className="neural-background" aria-hidden="true">
     <svg className="neural-background-contours" width="100%" height="100%" focusable="false">
       <defs>
-        <pattern id={contourId} width="760" height="560" patternUnits="userSpaceOnUse">
+        <pattern id={contourId} width={CONTOUR_WIDTH} height={CONTOUR_HEIGHT} patternUnits="userSpaceOnUse">
           <g fill="none" stroke="currentColor" strokeWidth="0.7">
             {Array.from({ length: 26 }, (_, i) => {
-              const y = i * 28 - 84;
-              return <path key={i} d={`M0 ${y} C126 ${y - 44},253 ${y + 64},380 ${y + 12} S634 ${y + 44},760 ${y}`} />;
+              return <path key={i} d={contourPath((i - 3) * CONTOUR_SPACING)} />;
             })}
           </g>
           <path d="M0 250 C126 206,253 314,380 262 S634 294,760 250" fill="none" stroke="var(--primary)" strokeWidth="0.8" strokeDasharray="3 7" />
@@ -84,13 +113,13 @@ export default function NeuralBackground() {
       </defs>
       <rect width="100%" height="100%" fill={`url(#${patternId})`} />
     </svg>
-    {pulse && <svg data-neural-pulse="" className="neural-background-pulse" viewBox="0 0 320 210" width="320" height="210"
+    {pulse && <svg data-neural-pulse="" data-neural-shape={pulse.pattern.name} className="neural-background-pulse" viewBox="0 0 320 210" width="320" height="210"
       style={{ left: pulse.x - 160, top: pulse.y - 105 }} focusable="false">
-      <g className="neural-background-glow"><Network /></g>
-      {SIGNALS.map((route, i) => <path key={i} className="neural-background-signal" pathLength="1"
-        d={route.map((n, j) => `${j ? "L" : "M"}${NODES[n].join(",")}`).join(" ")}
+      <g className="neural-background-glow"><Network pattern={pulse.pattern} nodes={pulse.nodes} /></g>
+      {pulse.pattern.signals.map((route, i) => <path key={i} className="neural-background-signal" pathLength="1"
+        d={route.map((n, j) => `${j ? "L" : "M"}${pulse.nodes[n].join(",")}`).join(" ")}
         style={{ "--signal-delay": `${i * 180}ms` } as CSSProperties} />)}
-      {NODES.map(([x, y], i) => <circle key={i} className="neural-background-node" cx={x} cy={y} r="3"
+      {pulse.nodes.map(([x, y], i) => <circle key={i} className="neural-background-node" cx={x} cy={y} r="3"
         style={{ "--signal-delay": `${i * 85}ms` } as CSSProperties} />)}
     </svg>}
   </div>;

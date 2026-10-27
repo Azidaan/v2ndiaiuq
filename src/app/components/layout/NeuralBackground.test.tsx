@@ -3,22 +3,23 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import NeuralBackground from "./NeuralBackground";
+import { contourY } from "../../lib/neuralContours";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
-async function setup(enabled = true) {
+async function setup(enabled = true, home = false) {
   vi.useFakeTimers();
   const media = Object.assign(new EventTarget(), { matches: enabled });
   vi.stubGlobal("matchMedia", vi.fn(() => media));
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  await act(async () => root.render(<div data-surface=""><NeuralBackground /><article>Текст новости</article><button>Ссылка</button></div>));
+  await act(async () => root.render(<div data-surface="" className={home ? "site-shell--home" : undefined}><NeuralBackground /><article>Текст новости</article><button>Ссылка</button></div>));
   const surface = host.querySelector<HTMLElement>("[data-surface]")!;
   surface.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1280, height: 800 } as DOMRect);
-  const move = async (target: Element = surface, pointerType = "mouse") => act(async () => {
-    const event = new MouseEvent("pointermove", { bubbles: true, clientX: 40, clientY: 150 });
+  const move = async (target: Element = surface, pointerType = "mouse", position: readonly [number, number] = [40, 150]) => act(async () => {
+    const event = new MouseEvent("pointermove", { bubbles: true, clientX: position[0], clientY: position[1] });
     Object.defineProperty(event, "pointerType", { value: pointerType });
     target.dispatchEvent(event);
   });
@@ -27,6 +28,49 @@ async function setup(enabled = true) {
 }
 
 describe("neural background interaction", () => {
+  it("alternates distinct network shapes while keeping every node on the background lines", async () => {
+    const { host, move, close } = await setup(true, true);
+    const shapes = new Set<string>();
+    const drawings = new Set<string>();
+    try {
+      for (let i = 0; i < 4; i++) {
+        await move();
+        const pulse = host.querySelector<SVGSVGElement>("[data-neural-pulse]")!;
+        shapes.add(pulse.dataset.neuralShape!);
+        drawings.add([...pulse.querySelectorAll(".neural-background-glow path")].map(p => p.getAttribute("d")).join(" "));
+        const originX = Number.parseFloat(pulse.style.left), originY = Number.parseFloat(pulse.style.top);
+        for (const circle of pulse.querySelectorAll(".neural-background-node")) {
+          const x = Number(circle.getAttribute("cx")) + originX;
+          const y = Number(circle.getAttribute("cy")) + originY;
+          const row = (y - contourY(x)) / 28;
+          expect(row).toBeCloseTo(Math.round(row), 8);
+        }
+        await act(async () => vi.advanceTimersByTime(3500));
+      }
+      expect(shapes.size).toBe(4);
+      expect(drawings.size).toBe(4);
+    } finally { await close(); }
+  });
+
+  it("places the home pulse nodes exactly on contours and retains straight diagonal connections", async () => {
+    const { host, move, close } = await setup(true, true);
+    try {
+      await move(undefined, "mouse", [327.625, 250]);
+      const pulse = host.querySelector("[data-neural-pulse]")!;
+      const node = pulse.querySelector(".neural-background-node")!;
+      expect(Number(node.getAttribute("cx"))).toBe(22);
+      // Absolute X=189.625 has curve Y=9; nearest row is Y=261, local Y=116.
+      expect(Number(node.getAttribute("cy"))).toBeCloseTo(116, 8);
+      expect(pulse.querySelectorAll(".neural-background-node")).toHaveLength(9);
+      const connections = pulse.querySelectorAll(".neural-background-glow path");
+      expect(connections).toHaveLength(16);
+      for (const path of connections) {
+        expect(path.getAttribute("d")).toContain("L");
+        expect(path.getAttribute("d")).not.toMatch(/[CQ]/);
+      }
+    } finally { await close(); }
+  });
+
   it("shows a brief pulse only on the background and limits repeated mouse movement", async () => {
     const { host, move, close } = await setup();
     try {
