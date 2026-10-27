@@ -1,7 +1,7 @@
 @layer components {
   .site-main { position: relative; isolation: isolate; }
   .site-page-content { position: relative; z-index: 1; }
-  .home-quick-access { background: #e7ede3; }
+  .home-quick-access { background: var(--card); }
   .neural-background {
     position: absolute;
     inset: 0;
