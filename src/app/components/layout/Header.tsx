@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Search, ChevronDown, ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
 import { NAV, type NavItem } from "../../data";
-import ipiiLogo from "../../../imports/ipii-logo.png";
+import ipiiLogo from "../../../imports/ipii-logo-petrol.png";
 
 const PANEL_WIDTH = 220;
 
@@ -65,7 +65,7 @@ function DropdownMenu({ item, scrollRef }: { item: NavItem; scrollRef: RefObject
     return (
       <Link
         to={item.path}
-        className={`flex shrink-0 items-center px-4 py-3 text-sm whitespace-nowrap transition-colors hover:bg-[#2a4d7e] ${
+        className={`flex shrink-0 items-center px-4 py-3 text-sm whitespace-nowrap transition-colors hover:bg-sidebar-accent ${
           isActive ? "border-b-2 border-white font-semibold" : ""
         }`}
       >
@@ -78,7 +78,7 @@ function DropdownMenu({ item, scrollRef }: { item: NavItem; scrollRef: RefObject
     <div ref={triggerRef} className="shrink-0">
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1 px-4 py-3 text-sm whitespace-nowrap transition-colors hover:bg-[#2a4d7e] ${
+        className={`flex items-center gap-1 px-4 py-3 text-sm whitespace-nowrap transition-colors hover:bg-sidebar-accent ${
           isActive ? "border-b-2 border-white font-semibold" : ""
         }`}
         aria-expanded={open}
@@ -120,7 +120,7 @@ function MobileNavItem({ item, onClose }: { item: NavItem; onClose: () => void }
       <Link
         to={item.path}
         onClick={onClose}
-        className={`block px-3 py-3 text-sm rounded transition-colors hover:bg-[#2a4d7e] ${isActive ? "font-semibold bg-[#2a4d7e]" : ""}`}
+        className={`block px-3 py-3 text-sm rounded transition-colors hover:bg-sidebar-accent ${isActive ? "font-semibold bg-sidebar-accent" : ""}`}
       >
         {item.label}
       </Link>
@@ -131,7 +131,7 @@ function MobileNavItem({ item, onClose }: { item: NavItem; onClose: () => void }
     <div>
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`w-full flex items-center justify-between px-3 py-3 text-sm rounded transition-colors hover:bg-[#2a4d7e] ${isActive ? "font-semibold" : ""}`}
+        className={`w-full flex items-center justify-between px-3 py-3 text-sm rounded transition-colors hover:bg-sidebar-accent ${isActive ? "font-semibold" : ""}`}
         aria-expanded={open}
       >
         <span>{item.label}</span>
@@ -144,7 +144,7 @@ function MobileNavItem({ item, onClose }: { item: NavItem; onClose: () => void }
               key={child.path}
               to={child.path}
               onClick={onClose}
-              className="block px-2 py-2.5 text-sm text-blue-100 hover:text-white hover:bg-[#2a4d7e] rounded transition-colors"
+              className="block px-2 py-2.5 text-sm text-primary-foreground/80 hover:text-white hover:bg-sidebar-accent rounded transition-colors"
             >
               {child.label}
             </Link>
@@ -266,7 +266,7 @@ export default function Header() {
         {/* Nav bar — desktop. Ряд прокручивается по горизонтали, поэтому не
             расширяет страницу на промежуточных ширинах (768–829 px). */}
         <nav
-          className="bg-primary text-primary-foreground hidden md:block"
+          className="petrol-surface bg-primary text-primary-foreground hidden md:block"
           aria-label="Основная навигация"
         >
           <div className="max-w-[1280px] mx-auto px-4 relative">
@@ -284,7 +284,7 @@ export default function Header() {
                   type="button"
                   onClick={() => scrollNav(-1)}
                   aria-label="Прокрутить меню влево"
-                  className="absolute inset-y-0 left-0 z-10 flex w-9 items-center justify-center bg-primary transition-colors hover:bg-[#2a4d7e]"
+                  className="absolute inset-y-0 left-0 z-10 flex w-9 items-center justify-center bg-primary transition-colors hover:bg-sidebar-accent"
                 >
                   <ChevronLeft size={17} aria-hidden="true" />
                 </button>
@@ -297,7 +297,7 @@ export default function Header() {
                   type="button"
                   onClick={() => scrollNav(1)}
                   aria-label="Прокрутить меню вправо"
-                  className="absolute inset-y-0 right-0 z-10 flex w-9 items-center justify-center bg-primary transition-colors hover:bg-[#2a4d7e]"
+                  className="absolute inset-y-0 right-0 z-10 flex w-9 items-center justify-center bg-primary transition-colors hover:bg-sidebar-accent"
                 >
                   <ChevronRight size={17} aria-hidden="true" />
                 </button>
@@ -319,7 +319,7 @@ export default function Header() {
             aria-hidden="true"
           />
           <nav
-            className="fixed left-0 right-0 z-30 md:hidden bg-primary text-primary-foreground overflow-y-auto"
+            className="petrol-surface fixed left-0 right-0 z-30 md:hidden bg-primary text-primary-foreground overflow-y-auto"
             style={{ top: headerHeight, maxHeight: `calc(100dvh - ${headerHeight}px)` }}
             aria-label="Мобильная навигация"
           >

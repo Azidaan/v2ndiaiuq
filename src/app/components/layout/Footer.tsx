@@ -26,7 +26,7 @@ const COL4 = [
 
 export default function Footer() {
   return (
-    <footer className="bg-primary text-primary-foreground" style={{ fontFamily: "var(--font-body)" }}>
+    <footer className="petrol-surface bg-primary text-primary-foreground" style={{ fontFamily: "var(--font-body)" }}>
       <div className="max-w-[1280px] mx-auto px-4 py-10">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
           {/* About */}
@@ -35,7 +35,7 @@ export default function Footer() {
             <ul className="space-y-1.5">
               {COL1.map((l) => (
                 <li key={l.path}>
-                  <Link to={l.path} className="text-xs text-blue-200 hover:text-white transition-colors">{l.label}</Link>
+                  <Link to={l.path} className="text-xs text-primary-foreground/80 hover:text-white transition-colors">{l.label}</Link>
                 </li>
               ))}
             </ul>
@@ -47,7 +47,7 @@ export default function Footer() {
             <ul className="space-y-1.5">
               {COL2.map((l) => (
                 <li key={l.path}>
-                  <Link to={l.path} className="text-xs text-blue-200 hover:text-white transition-colors">{l.label}</Link>
+                  <Link to={l.path} className="text-xs text-primary-foreground/80 hover:text-white transition-colors">{l.label}</Link>
                 </li>
               ))}
             </ul>
@@ -59,7 +59,7 @@ export default function Footer() {
             <ul className="space-y-1.5">
               {COL3.map((l) => (
                 <li key={l.path}>
-                  <Link to={l.path} className="text-xs text-blue-200 hover:text-white transition-colors">{l.label}</Link>
+                  <Link to={l.path} className="text-xs text-primary-foreground/80 hover:text-white transition-colors">{l.label}</Link>
                 </li>
               ))}
             </ul>
@@ -71,7 +71,7 @@ export default function Footer() {
             <ul className="space-y-1.5">
               {COL4.map((l) => (
                 <li key={l.path}>
-                  <Link to={l.path} className="text-xs text-blue-200 hover:text-white transition-colors">{l.label}</Link>
+                  <Link to={l.path} className="text-xs text-primary-foreground/80 hover:text-white transition-colors">{l.label}</Link>
                 </li>
               ))}
             </ul>
@@ -80,7 +80,7 @@ export default function Footer() {
           {/* Contacts */}
           <div>
             <h3 className="text-xs font-bold uppercase tracking-widest mb-3 opacity-60">Контакты</h3>
-            <ul className="space-y-2 text-xs text-blue-200">
+            <ul className="space-y-2 text-xs text-primary-foreground/80">
               <li className="flex items-start gap-2">
                 <MapPin size={12} className="shrink-0 mt-0.5 opacity-70" aria-hidden="true" />
                 <span>283048, г. Донецк, ул. Артёма, д. 118 б</span>
@@ -114,7 +114,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-white/15 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-blue-300">
+        <div className="border-t border-white/15 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-primary-foreground/65">
           <span>© 2026 ФГБНУ «Институт проблем искусственного интеллекта»</span>
           <div className="flex flex-wrap gap-4 justify-center">
             <Link to="/site-map" className="hover:text-white transition-colors">Карта сайта</Link>
