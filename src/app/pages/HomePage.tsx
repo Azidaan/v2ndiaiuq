@@ -366,6 +366,8 @@ export default function HomePage() {
           <div className="home-science-card">
             <div className="home-science-sheet">
             <div className="home-science-paper">
+              <div className="home-science-paper-head"><span className="home-science-paper-topic">Наука.РФ</span><span className="home-science-paper-label">2022 — 2031</span></div>
+              <div className="home-science-paper-body">
               <div className="home-science-logo">
                 <img src={naukaRfLogo} alt="2022–2031 Десятилетие науки и технологий" className="w-full h-auto object-contain" />
               </div>
@@ -374,17 +376,20 @@ export default function HomePage() {
                 href={blocks["science-left"]?.path || "https://наука.рф"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block bg-[#1a4b8c] hover:bg-[#2a5faa] text-white text-sm font-semibold px-5 py-2.5 rounded transition-colors w-fit"
+                className="home-science-cta"
               >
-                Узнай больше на <span className="text-[#7eb8f7]">наука.РФ</span>
+                Узнай больше на <span>наука.РФ</span>
               </a>
+              </div>
             </div>
             </div>
             <div className="home-science-sheet home-science-sheet-details">
             <div className="home-science-paper">
-              <span className="home-science-paper-label">2022 — 2031</span>
+              <div className="home-science-paper-head"><span className="home-science-paper-topic">Инициативы</span><span className="home-science-paper-label">2022 — 2031</span></div>
+              <div className="home-science-paper-body">
               <h2>Десятилетие науки<br /> и технологий</h2>
               <p>{blocks["science-right"]?.summary || "Десятилетие науки и технологий включает комплекс инициатив, проектов и мероприятий — направленных на усиление роли науки в решении важнейших задач развития общества и страны."}</p>
+              </div>
             </div>
             </div>
           </div>
