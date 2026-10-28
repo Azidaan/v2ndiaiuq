@@ -86,6 +86,10 @@ export default function NeuralBackground({ contours = false }: { contours?: bool
       setPulse(undefined);
     }
     function move(event: PointerEvent) {
+      if (event.target instanceof Element && event.target.closest(".institute-banner")) {
+        clear();
+        return;
+      }
       if (!media.matches || event.pointerType === "touch" || Date.now() - last < COOLDOWN) return;
       if (!(event.target instanceof Element) || event.target.closest(CONTENT)) return;
       const rect = parent!.getBoundingClientRect();

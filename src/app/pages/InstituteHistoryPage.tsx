@@ -1,7 +1,6 @@
 import { Link } from "react-router";
 import Breadcrumbs from "../components/layout/Breadcrumbs";
-import SafeImage from "../components/ui/SafeImage";
-import instituteBanner from "../../imports/institute-entrance-banner.png";
+import InstituteBanner from "../components/layout/InstituteBanner";
 
 const GOALS = [
   "Концентрация творческих усилий и более полное использование научного и технического потенциала в сфере разработки интеллектуальных и робототехнических систем, компьютерных информационных технологий, создания систем искусственного интеллекта и дистантных форм обучения.",
@@ -34,24 +33,7 @@ export default function InstituteHistoryPage() {
         ]}
       />
 
-      <div className="relative h-56 sm:h-64 bg-primary overflow-hidden">
-        <SafeImage
-          src={instituteBanner}
-          alt="История и миссия института"
-          className="w-full h-full object-cover opacity-70"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/60 to-primary/20" aria-hidden="true" />
-        <div className="absolute inset-0 flex items-end pb-8 px-4">
-          <div className="max-w-[1280px] mx-auto w-full">
-            <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "var(--font-display)" }}>
-              История и миссия
-            </h1>
-            <p className="text-sm text-primary-foreground/80 mt-2 max-w-3xl leading-relaxed">
-              Ключевые сведения об институте, его задачах, направлениях деятельности и научных достижениях.
-            </p>
-          </div>
-        </div>
-      </div>
+      <InstituteBanner title="История и миссия" subtitle="Ключевые сведения об институте, его задачах, направлениях деятельности и научных достижениях." />
 
       <div className="max-w-[1280px] mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-8">
