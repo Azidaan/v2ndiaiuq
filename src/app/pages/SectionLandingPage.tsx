@@ -131,7 +131,7 @@ export default function SectionLandingPage() {
             <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "var(--font-display)" }}>
               {config.title}
             </h1>
-            <p className="text-sm text-blue-200 mt-2 max-w-2xl leading-relaxed">{config.subtitle}</p>
+            <p className="text-sm text-primary-foreground/80 mt-2 max-w-2xl leading-relaxed">{config.subtitle}</p>
           </div>
         </div>
       </div>

@@ -12,7 +12,7 @@ interface Props {
 
 export default function Breadcrumbs({ crumbs }: Props) {
   return (
-    <nav aria-label="Хлебные крошки" className="bg-white border-b border-border">
+    <nav aria-label="Хлебные крошки" className="bg-card border-b border-border">
       <div className="max-w-[1280px] mx-auto px-4">
         <ol className="flex items-center gap-1 py-2 text-xs text-muted-foreground flex-wrap">
           <li>

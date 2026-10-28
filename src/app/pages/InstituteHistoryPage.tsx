@@ -44,7 +44,7 @@ export default function InstituteHistoryPage() {
             <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "var(--font-display)" }}>
               История и миссия
             </h1>
-            <p className="text-sm text-blue-200 mt-2 max-w-3xl leading-relaxed">
+            <p className="text-sm text-primary-foreground/80 mt-2 max-w-3xl leading-relaxed">
               Ключевые сведения об институте, его задачах, направлениях деятельности и научных достижениях.
             </p>
           </div>

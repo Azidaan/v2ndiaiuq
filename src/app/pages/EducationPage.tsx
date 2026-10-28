@@ -92,7 +92,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
           >
             Образование
           </h1>
-          <p className="text-sm text-blue-100 mt-2 max-w-3xl leading-relaxed">
+          <p className="text-sm text-primary-foreground/80 mt-2 max-w-3xl leading-relaxed">
             Аспирантура ФГБНУ «ИПИИ» и материалы библиотеки для подготовки
             научных и научно-педагогических кадров.
           </p>

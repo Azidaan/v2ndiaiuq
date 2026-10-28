@@ -292,9 +292,9 @@ export default function ScienceResearchPage() {
       <Breadcrumbs crumbs={[{ label: "Наука", path: "/science" }, { label: "Исследования и разработки" }]} />
       <div className="bg-primary text-primary-foreground">
         <div className="max-w-[1280px] mx-auto px-4 py-8">
-          <p className="text-xs font-bold uppercase tracking-widest text-blue-200 mb-2">Раздел «Наука»</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-primary-foreground/80 mb-2">Раздел «Наука»</p>
           <h1 className="text-3xl font-bold" style={{ fontFamily: "var(--font-display)" }}>Исследования и разработки</h1>
-          <p className="text-sm text-blue-100 mt-2 max-w-3xl leading-relaxed">
+          <p className="text-sm text-primary-foreground/80 mt-2 max-w-3xl leading-relaxed">
             Ключевые разработки ФГБНУ «ИПИИ» в области робототехники, интеллектуальных систем, компьютерной лингвистики, цифровизации и речевых технологий.
           </p>
         </div>
