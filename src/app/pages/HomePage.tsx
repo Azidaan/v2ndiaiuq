@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router";
 import { ChevronRight, ChevronLeft, Newspaper, Calendar, BookOpen, ArrowRight, FileText, GraduationCap, FlaskConical, Building2, ExternalLink, type LucideIcon } from "lucide-react";
 import { formatDate, CATEGORY_LABELS, type NewsCategory, type NewsItem } from "../data";
@@ -76,6 +76,7 @@ type HeroSlideCardProps = {
 };
 
 function HeroOutline() {
+  const id = useId();
   const ref = useRef<SVGSVGElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   useEffect(() => {
@@ -92,9 +93,16 @@ function HeroOutline() {
   }, []);
   const { width: w, height: h } = size;
   // Pixel geometry follows the card's rounded corners without stretching the arcs.
-  const route = `M ${w - 2} 2 H 12 Q 2 2 2 12 V ${h - 12} Q 2 ${h - 2} 12 ${h - 2} H ${w / 2}`;
+  const route = `M ${w - 2} 2 H 12 Q 2 2 2 12 V ${h - 12} Q 2 ${h - 2} 12 ${h - 2} H ${w - 2}`;
   return <svg ref={ref} className="hero-copy-outline" viewBox={`0 0 ${w || 1} ${h || 1}`} aria-hidden="true" focusable="false">
-    {w > 0 && Array.from({ length: 20 }, (_, index) => <path key={index} className="hero-copy-outline-path" d={route} pathLength="1" style={{ animationDelay: `${index * 55}ms`, "--trace-opacity": (1 - index / 20) ** 2 } as CSSProperties} />)}
+    <defs>
+      <linearGradient id={`${id}-fade`} x1="0" y1="0" x2="0" y2="1">
+        <stop className="hero-outline-top-stop" stopColor="white" />
+        <stop offset="0.75" stopColor="white" />
+      </linearGradient>
+      <mask id={`${id}-mask`}><rect width="100%" height="100%" fill={`url(#${id}-fade)`} /></mask>
+    </defs>
+    {w > 0 && <path className="hero-copy-outline-path" d={route} pathLength="1" mask={`url(#${id}-mask)`} />}
   </svg>;
 }
 

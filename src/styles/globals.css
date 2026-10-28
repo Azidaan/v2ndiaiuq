@@ -57,15 +57,21 @@
   }
   .hero-slide-copy { position: relative; border-top: 3px solid transparent; }
   .hero-copy-outline { position: absolute; top: -3px; left: 0; width: 100%; height: calc(100% + 3px); pointer-events: none; z-index: 2; }
-  .hero-copy-outline-path { fill: none; stroke: var(--home-copper); stroke-width: 3px; stroke-linecap: round; stroke-dasharray: 0.009 1.991; stroke-dashoffset: 0.02; opacity: 0; animation: hero-outline-trace 9s linear infinite; }
+  .hero-copy-outline-path { fill: none; stroke: var(--home-copper); stroke-width: 3px; stroke-linecap: round; stroke-dasharray: 1; animation: hero-outline-trace 9s linear infinite; }
+  .hero-outline-top-stop { animation: hero-outline-top-fade 9s linear infinite; }
   @keyframes hero-outline-trace {
-    0% { stroke-dashoffset: 0.02; opacity: 0; }
-    3%, 94% { opacity: var(--trace-opacity); }
-    100% { stroke-dashoffset: -1.04; opacity: 0; }
+    0%, 5% { stroke-dashoffset: 1; opacity: 0; }
+    8% { stroke-dashoffset: 1; opacity: 1; }
+    78%, 87% { stroke-dashoffset: 0; opacity: 1; }
+    100% { stroke-dashoffset: 0; opacity: 0; }
+  }
+  @keyframes hero-outline-top-fade {
+    0%, 40% { stop-opacity: 1; }
+    74%, 100% { stop-opacity: 0; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .hero-copy-outline-path { animation: none; opacity: 0; }
-    .hero-copy-outline-path:first-child { stroke-dasharray: none; opacity: 0.5; }
+    .hero-copy-outline-path { animation: none; stroke-dashoffset: 0; opacity: 0.5; }
+    .hero-outline-top-stop { animation: none; stop-opacity: 1; }
   }
   .hero-slide-title { font-size: clamp(21px, 2vw, 28px); }
   .home-page .hero-slide-controls { padding-top: 16px; border-top: 1px solid var(--border); }
