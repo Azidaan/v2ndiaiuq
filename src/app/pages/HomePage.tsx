@@ -281,7 +281,7 @@ function NewsCarousel({ news }: { news: HomeNewsItem[] }) {
             to={`/news/${item.id}`}
             className="home-news-card group flex min-w-0 flex-col overflow-hidden border border-border bg-card transition-colors hover:border-accent"
           >
-            <div className="aspect-[2/1] w-full shrink-0 overflow-hidden">
+            <div className="home-news-photo-frame shrink-0 overflow-hidden">
               {item.image && (
                 <SafeImage
                   src={item.image}

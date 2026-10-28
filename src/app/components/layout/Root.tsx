@@ -11,7 +11,7 @@ export default function Root() {
     <div className={`site-shell ${home ? "site-shell--home" : ""} min-h-screen flex flex-col bg-background`} style={{ fontFamily: "var(--font-body)" }}>
       <Header />
       <main className="site-main flex-1">
-        <NeuralBackground />
+        <NeuralBackground contours={home} />
         <div className="site-page-content"><Outlet /></div>
       </main>
       <Footer />

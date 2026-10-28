@@ -67,6 +67,7 @@
   }
   .home-section-index::after { content: ""; width: 24px; height: 1px; background: #c6ad91; }
   .home-news-card { border-radius: 10px; box-shadow: 0 2px 2px #24364b04; }
+  .home-news-photo-frame { width: calc(100% - 16px); margin: 8px 8px 0; aspect-ratio: 47 / 24; border-radius: 8px; }
   .home-news-date { color: #8b603e; font-family: ui-monospace, monospace; font-size: 11px; }
   .home-news-title { font-family: var(--font-display); font-size: 16px; line-height: 1.45; }
   .home-science-section { padding-top: 16px; }
@@ -95,7 +96,7 @@
   .home-shortcut-index { display: flex; justify-content: space-between; width: 100%; margin-bottom: 4px; color: var(--home-copper); font-family: ui-monospace, monospace; font-size: 10px; }
   .neural-background-contours { display: none; position: absolute; inset: 0; }
   .site-shell--home .neural-background-contours { display: block; color: #9e8c76; opacity: 0.2; }
-  .site-shell--home .neural-background-pattern { display: none; }
+  .site-shell--home .neural-background-pattern { opacity: 0.1; }
   @media (max-width: 639px) {
     .home-masthead { align-items: start; flex-direction: column; gap: 12px; margin-bottom: 20px; padding-block: 4px 20px; }
     .home-masthead-note { font-size: 13px; }

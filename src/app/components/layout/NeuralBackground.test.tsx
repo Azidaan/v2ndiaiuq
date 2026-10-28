@@ -15,7 +15,7 @@ async function setup(enabled = true, home = false) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  await act(async () => root.render(<div data-surface="" className={home ? "site-shell--home" : undefined}><NeuralBackground /><article>Текст новости</article><button>Ссылка</button></div>));
+  await act(async () => root.render(<div data-surface="" className={home ? "site-shell--home" : undefined}><NeuralBackground contours={home} /><article>Текст новости</article><button>Ссылка</button></div>));
   const surface = host.querySelector<HTMLElement>("[data-surface]")!;
   surface.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1280, height: 800 } as DOMRect);
   const move = async (target: Element = surface, pointerType = "mouse", position: readonly [number, number] = [40, 150]) => act(async () => {
@@ -28,6 +28,28 @@ async function setup(enabled = true, home = false) {
 }
 
 describe("neural background interaction", () => {
+  it("shows idle artwork and highlights the same nodes when the pointer crosses it", async () => {
+    const { host, move, close } = await setup(true, true);
+    try {
+      const idle = host.querySelector('[data-neural-art="mesh"]')!;
+      expect(host.querySelectorAll('[data-neural-art]')).toHaveLength(4);
+      expect(host.querySelector('[data-neural-pulse]')).toBeNull();
+      await move(undefined, "mouse", [660, 100]);
+      const pulse = host.querySelector<SVGSVGElement>('[data-neural-pulse]')!;
+      expect(pulse.style.left).toBe("500px");
+      expect(pulse.style.top).toBe("0px");
+      expect(pulse.dataset.neuralShape).toBe("mesh");
+      const idleCircles = [...idle.querySelectorAll('circle')];
+      [...pulse.querySelectorAll('.neural-background-node')].forEach((circle, i) => {
+        expect(circle.getAttribute('cx')).toBe(idleCircles[i].getAttribute('cx'));
+        expect(circle.getAttribute('cy')).toBe(idleCircles[i].getAttribute('cy'));
+      });
+      await act(async () => vi.advanceTimersByTime(2600));
+      expect(host.querySelector('[data-neural-pulse]')).toBeNull();
+      expect(host.querySelectorAll('[data-neural-art]')).toHaveLength(4);
+    } finally { await close(); }
+  });
+
   it("alternates distinct network shapes while keeping every node on the background lines", async () => {
     const { host, move, close } = await setup(true, true);
     const shapes = new Set<string>();

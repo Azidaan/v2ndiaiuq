@@ -35,6 +35,23 @@ const PATTERNS: readonly NeuralPattern[] = [
 ];
 const COOLDOWN = 3500;
 const DURATION = 2600;
+const ART_WIDTH = CONTOUR_WIDTH * 2;
+const ART_HEIGHT = CONTOUR_HEIGHT * 2;
+const ART_ORIGINS: readonly NeuralPoint[] = [[500, 0], [-90, 300], [1160, 240], [580, 700]];
+
+function artwork(pattern: NeuralPattern, origin: NeuralPoint, contours: boolean) {
+  return { pattern, nodes: contours ? snapNodesToContours(pattern.nodes, origin) : pattern.nodes, x: origin[0] + 160, y: origin[1] + 105 };
+}
+
+function artworkAt(x: number, y: number, contours: boolean) {
+  const col = Math.floor(x / ART_WIDTH), row = Math.floor(y / ART_HEIGHT);
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+    for (const [i, [ox, oy]] of ART_ORIGINS.entries()) {
+      const left = ox + (col + dx) * ART_WIDTH, top = oy + (row + dy) * ART_HEIGHT;
+      if (x >= left && x <= left + 320 && y >= top && y <= top + 210) return artwork(PATTERNS[i], [left, top], contours);
+    }
+  }
+}
 // Content and controls never activate the decoration underneath them.
 const CONTENT = "a, button, input, textarea, select, label, article, aside, nav, [role='dialog'], .bg-card, .bg-white, .bg-secondary, .prose, h1, h2, h3, p, li, table, img, video, iframe";
 
@@ -50,13 +67,14 @@ function Network({ pattern = PATTERNS[0], nodes = pattern.nodes }: { pattern?: N
 }
 
 /** Sparse SVG decoration: one short response to the mouse, with no idle animation loop. */
-export default function NeuralBackground() {
+export default function NeuralBackground({ contours = false }: { contours?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const patternId = useId();
   const contourId = useId();
   const [pulse, setPulse] = useState<{ x: number; y: number; pattern: NeuralPattern; nodes: readonly NeuralPoint[] }>();
 
   useEffect(() => {
+    setPulse(undefined);
     const parent = ref.current?.parentElement;
     if (!parent || typeof window.matchMedia !== "function") return;
     const media = window.matchMedia("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)");
@@ -74,9 +92,8 @@ export default function NeuralBackground() {
       const x = event.clientX - rect.left, y = event.clientY - rect.top;
       if (x < 0 || x > rect.width || y < 0 || y > rect.height) return;
       last = Date.now();
-      const pattern = PATTERNS[sequence++ % PATTERNS.length];
-      const nodes = parent!.closest(".site-shell--home") ? snapNodesToContours(pattern.nodes, [x - 160, y - 105]) : pattern.nodes;
-      setPulse({ x, y, pattern, nodes });
+      const existing = artworkAt(x, y, contours);
+      setPulse(existing ?? artwork(PATTERNS[sequence++ % PATTERNS.length], [x - 160, y - 105], contours));
       timer = setTimeout(() => setPulse(undefined), DURATION);
     }
     parent.addEventListener("pointermove", move, { passive: true });
@@ -88,7 +105,7 @@ export default function NeuralBackground() {
       parent.removeEventListener("pointerleave", clear);
       media.removeEventListener("change", clear);
     };
-  }, []);
+  }, [contours]);
 
   return <div ref={ref} className="neural-background" aria-hidden="true">
     <svg className="neural-background-contours" width="100%" height="100%" focusable="false">
@@ -107,8 +124,10 @@ export default function NeuralBackground() {
     </svg>
     <svg className="neural-background-pattern" width="100%" height="100%" focusable="false">
       <defs>
-        <pattern id={patternId} width="490" height="440" patternUnits="userSpaceOnUse">
-          <g transform="translate(-75 55)"><Network /></g>
+        <pattern id={patternId} width={ART_WIDTH} height={ART_HEIGHT} patternUnits="userSpaceOnUse">
+          {ART_ORIGINS.map((origin, i) => <g key={i} data-neural-art={PATTERNS[i].name} transform={`translate(${origin.join(" ")})`}>
+            <Network pattern={PATTERNS[i]} nodes={artwork(PATTERNS[i], origin, contours).nodes} />
+          </g>)}
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill={`url(#${patternId})`} />
