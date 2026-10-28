@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router";
 import { ChevronRight, ChevronLeft, Newspaper, Calendar, BookOpen, ArrowRight, FileText, GraduationCap, FlaskConical, Building2, ExternalLink, type LucideIcon } from "lucide-react";
 import { formatDate, CATEGORY_LABELS, type NewsCategory, type NewsItem } from "../data";
@@ -75,24 +75,37 @@ type HeroSlideCardProps = {
   onNext: () => void;
 };
 
+function HeroOutline() {
+  const ref = useRef<SVGSVGElement>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    const svg = ref.current;
+    if (!svg) return;
+    const measure = () => {
+      const { width, height } = svg.getBoundingClientRect();
+      setSize({ width, height });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, []);
+  const { width: w, height: h } = size;
+  // Pixel geometry follows the card's rounded corners without stretching the arcs.
+  const route = `M ${w - 2} 2 H 12 Q 2 2 2 12 V ${h - 12} Q 2 ${h - 2} 12 ${h - 2} H ${w / 2}`;
+  return <svg ref={ref} className="hero-copy-outline" viewBox={`0 0 ${w || 1} ${h || 1}`} aria-hidden="true" focusable="false">
+    {w > 0 && Array.from({ length: 20 }, (_, index) => <path key={index} className="hero-copy-outline-path" d={route} pathLength="1" style={{ animationDelay: `${index * 55}ms`, "--trace-opacity": (1 - index / 20) ** 2 } as CSSProperties} />)}
+  </svg>;
+}
+
 function HeroSlideCard({ item, slides, activeIndex, active, exiting = false, wide = false, onSelect, onPrevious, onNext }: HeroSlideCardProps) {
-  const borderId = useId();
   return (
     <div
       className={`${active ? "hero-slide-active" : ""} ${exiting ? "pointer-events-none" : ""} flex h-full min-h-[360px] flex-col sm:flex-row`}
       aria-hidden={exiting || undefined}
     >
       <div className="hero-slide-copy flex-1 min-w-0 p-5 sm:p-6 flex flex-col justify-between">
-        <svg className="hero-copy-outline" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-          <defs>
-            <linearGradient id={`${borderId}-fade`}><stop stopColor="white" /><stop offset="1" stopColor="black" /></linearGradient>
-            <mask id={`${borderId}-mask`} maskUnits="userSpaceOnUse" x="0" y="0" width="1000" height="1000">
-              <rect width="1000" height="1000" fill="white" />
-              <rect y="970" width="500" height="30" fill={`url(#${borderId}-fade)`} />
-            </mask>
-          </defs>
-          <path className="hero-copy-outline-path" d="M 1000 2 H 14 Q 2 2 2 14 V 986 Q 2 998 14 998 H 500" pathLength="1" vectorEffect="non-scaling-stroke" mask={`url(#${borderId}-mask)`} />
-        </svg>
+        <HeroOutline />
         <div className={`hero-slide-body ${wide ? "lg:max-w-[70ch]" : ""}`}>
           <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded mb-3 ${CATEGORY_COLORS[item.category]}`}>
             {CATEGORY_LABELS[item.category]}
