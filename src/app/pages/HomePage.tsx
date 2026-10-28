@@ -75,25 +75,27 @@ type HeroSlideCardProps = {
   onNext: () => void;
 };
 
-function HeroOutline() {
+function HeroOutline({ slide }: { slide: number }) {
   const id = useId();
   const ref = useRef<SVGSVGElement>(null);
-  const [size, setSize] = useState({ width: 0, height: 0 });
+  const [size, setSize] = useState({ width: 0, height: 0, edge: 0 });
   useEffect(() => {
     const svg = ref.current;
     if (!svg) return;
     const measure = () => {
-      const { width, height } = svg.getBoundingClientRect();
-      setSize({ width, height });
+      const { width, height, left, top } = svg.getBoundingClientRect();
+      const image = svg.parentElement?.querySelector('.hero-slide-active .hero-slide-image')?.getBoundingClientRect();
+      const edge = image && Math.abs(image.top - top) < 8 ? image.left - left : width / 2;
+      setSize({ width, height, edge });
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(svg);
     return () => observer.disconnect();
-  }, []);
-  const { width: w, height: h } = size;
+  }, [slide]);
+  const { width: w, height: h, edge } = size;
   // Pixel geometry follows the card's rounded corners without stretching the arcs.
-  const route = `M ${w / 2} 1 H 12 Q 1 1 1 12 V ${h - 12} Q 1 ${h - 1} 12 ${h - 1} H ${w / 2}`;
+  const route = `M ${edge} 1 H 12 Q 1 1 1 12 V ${h - 12} Q 1 ${h - 1} 12 ${h - 1} H ${edge}`;
   return <svg ref={ref} className="hero-copy-outline" viewBox={`0 0 ${w || 1} ${h || 1}`} aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id={`${id}-fade`} x1="0" y1="0" x2="0" y2="1">
@@ -221,7 +223,7 @@ function HeroSlider({ news, blocks }: { news: HomeNewsItem[]; blocks: Record<str
               wide={!showCards} onSelect={selectSlide} onPrevious={() => selectSlide(slide - 1)} onNext={() => selectSlide(slide + 1)} />
           </div>
         ))}
-        <HeroOutline />
+        <HeroOutline slide={slide} />
       </div>
 
       {/* Right sidebar cards */}
