@@ -363,12 +363,13 @@ export default function HomePage() {
       {/* НАУКА.РФ BANNER */}
       <section className="home-science-section pb-5">
         <div className="max-w-[1280px] mx-auto px-4">
-          <div className="home-science-card overflow-hidden text-white flex flex-col sm:flex-row">
-            <div className="flex-1 p-6 flex flex-col justify-between gap-4">
-              <div className="max-w-[70px] sm:max-w-[100px]">
+          <div className="home-science-card">
+            <div className="home-science-sheet">
+            <div className="home-science-paper">
+              <div className="home-science-logo">
                 <img src={naukaRfLogo} alt="2022–2031 Десятилетие науки и технологий" className="w-full h-auto object-contain" />
               </div>
-              <p className="text-[13px] text-gray-200 leading-relaxed">{blocks["science-left"]?.summary || "Президент России Владимир Путин объявил 2022–2031 гг. Десятилетием науки и технологий."}</p>
+              <p>{blocks["science-left"]?.summary || "Президент России Владимир Путин объявил 2022–2031 гг. Десятилетием науки и технологий."}</p>
               <a
                 href={blocks["science-left"]?.path || "https://наука.рф"}
                 target="_blank"
@@ -378,9 +379,13 @@ export default function HomePage() {
                 Узнай больше на <span className="text-[#7eb8f7]">наука.РФ</span>
               </a>
             </div>
-            <div className="w-px bg-white/10 hidden sm:block" />
-            <div className="home-science-description flex-1 p-6 flex items-center">
-              <p className="text-[13px] text-gray-300 leading-relaxed">{blocks["science-right"]?.summary || "Десятилетие науки и технологий включает комплекс инициатив, проектов и мероприятий — направленных на усиление роли науки в решении важнейших задач развития общества и страны."}</p>
+            </div>
+            <div className="home-science-sheet home-science-sheet-details">
+            <div className="home-science-paper">
+              <span className="home-science-paper-label">2022 — 2031</span>
+              <h2>Десятилетие науки<br /> и технологий</h2>
+              <p>{blocks["science-right"]?.summary || "Десятилетие науки и технологий включает комплекс инициатив, проектов и мероприятий — направленных на усиление роли науки в решении важнейших задач развития общества и страны."}</p>
+            </div>
             </div>
           </div>
         </div>

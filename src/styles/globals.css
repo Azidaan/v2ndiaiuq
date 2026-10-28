@@ -72,14 +72,59 @@
   .home-news-title { font-family: var(--font-display); font-size: 16px; line-height: 1.45; }
   .home-science-section { padding-top: 16px; }
   .home-science-card {
-    border: 1px solid #30465b;
-    border-top: 3px solid #b98559;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px;
+    padding: 28px 32px;
+    border: 1px solid #d5cbbb;
     border-radius: 12px;
-    background-color: #1b2d42;
-    background-image: linear-gradient(#ffffff06 1px, transparent 1px), linear-gradient(90deg, #ffffff06 1px, transparent 1px);
-    background-size: 24px 24px;
+    background-color: #f1ede4;
+    background-image: linear-gradient(#cfc4b566 1px, transparent 1px), linear-gradient(90deg, #cfc4b566 1px, transparent 1px), linear-gradient(#ddd4c770 1px, transparent 1px), linear-gradient(90deg, #ddd4c770 1px, transparent 1px);
+    background-size: 40px 40px, 40px 40px, 8px 8px, 8px 8px;
   }
-  .home-science-description { background: #14263b66; }
+  .home-science-sheet {
+    min-width: 0;
+    display: flex;
+    transform: rotate(-0.35deg);
+    filter: drop-shadow(0 2px 2px #463c3012) drop-shadow(0 8px 8px #463c3014);
+  }
+  .home-science-sheet-details { transform: rotate(0.4deg); }
+  .home-science-paper {
+    position: relative;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: start;
+    gap: 18px;
+    padding: 26px 30px;
+    background: linear-gradient(120deg, #fffefb, #faf8f1);
+    border: 1px solid #e2dbce;
+    clip-path: polygon(0 0, calc(100% - 28px) 0, 100% 28px, 100% 100%, 0 100%);
+    color: var(--foreground);
+  }
+  .home-science-paper::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(45deg, #e4ded1, #f4f0e7);
+    border-left: 1px solid #d9d1c2;
+    border-bottom: 1px solid #d9d1c2;
+    box-shadow: -2px 2px 4px #463c3010;
+  }
+  .home-science-paper p { font-size: 14px; line-height: 1.75; }
+  .home-science-paper h2 { color: var(--primary); font-family: var(--font-display); font-size: 26px; font-weight: 400; line-height: 1.25; }
+  .home-science-paper-label { color: #8b603e; font-family: ui-monospace, monospace; font-size: 12px; letter-spacing: 0.12em; }
+  .home-science-paper > a { margin-top: auto; }
+  .home-science-logo { width: 105px; }
+  .home-science-logo img { filter: brightness(0); opacity: 0.75; }
+  @media (max-width: 639px) {
+    .home-science-card { grid-template-columns: minmax(0, 1fr); gap: 22px; padding: 20px 16px; }
+    .home-science-paper { padding: 22px; }
+    .home-science-paper h2 { font-size: 23px; }
+  }
   .home-page .home-quick-access { position: relative; isolation: isolate; padding-block: 32px 40px; }
   .home-quick-access::before {
     content: "";
