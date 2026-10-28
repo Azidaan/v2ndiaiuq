@@ -338,7 +338,7 @@ export default function HomePage() {
   return (
     <div className="home-page" style={{ fontFamily: "var(--font-body)" }}>
       {/* HERO */}
-      <section className="home-hero-section py-5">
+      <section className="home-hero-section">
         <div className="max-w-[1280px] mx-auto px-4">
           <div className="home-masthead">
             <div>
@@ -354,14 +354,14 @@ export default function HomePage() {
       </section>
 
       {/* NEWS */}
-      <section className="home-news-section pb-5">
+      <section className="home-news-section">
         <div className="max-w-[1280px] mx-auto px-4">
           <NewsCarousel news={news} />
         </div>
       </section>
 
       {/* НАУКА.РФ BANNER */}
-      <section className="home-science-section pb-5">
+      <section className="home-science-section">
         <div className="max-w-[1280px] mx-auto px-4">
           <div className="home-science-card">
             <div className="home-science-sheet">
@@ -397,7 +397,7 @@ export default function HomePage() {
       </section>
 
       {/* QUICK ACCESS */}
-      <section className="home-quick-access py-8">
+      <section className="home-quick-access">
         <div className="max-w-[1280px] mx-auto px-4">
           <div className="home-section-heading mb-5"><span className="home-section-index" aria-hidden="true">02</span><h2>Быстрый доступ</h2></div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
