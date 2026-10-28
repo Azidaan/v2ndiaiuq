@@ -93,7 +93,7 @@ function HeroOutline() {
   }, []);
   const { width: w, height: h } = size;
   // Pixel geometry follows the card's rounded corners without stretching the arcs.
-  const route = `M ${w - 2} 2 H 12 Q 2 2 2 12 V ${h - 12} Q 2 ${h - 2} 12 ${h - 2} H ${w - 2}`;
+  const route = `M ${w / 2} 1 H 12 Q 1 1 1 12 V ${h - 12} Q 1 ${h - 1} 12 ${h - 1} H ${w / 2}`;
   return <svg ref={ref} className="hero-copy-outline" viewBox={`0 0 ${w || 1} ${h || 1}`} aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id={`${id}-fade`} x1="0" y1="0" x2="0" y2="1">
@@ -113,7 +113,6 @@ function HeroSlideCard({ item, slides, activeIndex, active, exiting = false, wid
       aria-hidden={exiting || undefined}
     >
       <div className="hero-slide-copy flex-1 min-w-0 p-5 sm:p-6 flex flex-col justify-between">
-        <HeroOutline />
         <div className={`hero-slide-body ${wide ? "lg:max-w-[70ch]" : ""}`}>
           <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded mb-3 ${CATEGORY_COLORS[item.category]}`}>
             {CATEGORY_LABELS[item.category]}
@@ -222,6 +221,7 @@ function HeroSlider({ news, blocks }: { news: HomeNewsItem[]; blocks: Record<str
               wide={!showCards} onSelect={selectSlide} onPrevious={() => selectSlide(slide - 1)} onNext={() => selectSlide(slide + 1)} />
           </div>
         ))}
+        <HeroOutline />
       </div>
 
       {/* Right sidebar cards */}

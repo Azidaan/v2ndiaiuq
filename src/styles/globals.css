@@ -56,13 +56,13 @@
     box-shadow: 0 2px 3px #24364b05, 0 18px 32px -24px #24364b55;
   }
   .hero-slide-copy { position: relative; border-top: 3px solid transparent; }
-  .hero-copy-outline { position: absolute; top: -3px; left: 0; width: 100%; height: calc(100% + 3px); pointer-events: none; z-index: 2; }
-  .hero-copy-outline-path { fill: none; stroke: var(--home-copper); stroke-width: 3px; stroke-linecap: round; stroke-dasharray: 1; animation: hero-outline-trace 9s linear infinite; }
-  .hero-outline-top-stop { animation: hero-outline-top-fade 9s linear infinite; }
+  .hero-copy-outline { position: absolute; inset: -1px; width: calc(100% + 2px); height: calc(100% + 2px); overflow: visible; pointer-events: none; z-index: 3; }
+  .hero-copy-outline-path { fill: none; stroke: var(--home-copper); stroke-width: 2px; stroke-linecap: round; stroke-dasharray: 1; animation: hero-outline-trace 12s linear infinite; }
+  .hero-outline-top-stop { animation: hero-outline-top-fade 12s linear infinite; }
   @keyframes hero-outline-trace {
-    0%, 5% { stroke-dashoffset: 1; opacity: 0; }
-    8% { stroke-dashoffset: 1; opacity: 1; }
-    78%, 87% { stroke-dashoffset: 0; opacity: 1; }
+    0% { stroke-dashoffset: 1; opacity: 0; }
+    3% { stroke-dashoffset: 1; opacity: 1; }
+    58%, 90% { stroke-dashoffset: 0; opacity: 1; }
     100% { stroke-dashoffset: 0; opacity: 0; }
   }
   @keyframes hero-outline-top-fade {
