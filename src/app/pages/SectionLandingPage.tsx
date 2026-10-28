@@ -5,6 +5,7 @@ import Breadcrumbs from "../components/layout/Breadcrumbs";
 import { NEWS, formatDate } from "../data";
 import { useManagedContent } from "../lib/content";
 import SafeImage from "../components/ui/SafeImage";
+import instituteBanner from "../../imports/institute-entrance-banner.png";
 
 /** Запасные значения на случай пустой базы: те же, что в визуальном редакторе. */
 const REQUISITES_FALLBACK = {
@@ -27,7 +28,7 @@ const SECTIONS: Record<string, SectionConfig> = {
   "/institute": {
     title: "Об институте",
     subtitle: "Федеральное государственное бюджетное научное учреждение «Институт проблем искусственного интеллекта» — ведущий российский исследовательский центр в области ИИ.",
-    image: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&h=400&fit=crop&auto=format",
+    image: instituteBanner,
     breadcrumb: "Институт",
     links: [
       { label: "История и миссия", path: "/institute/history", description: "Основание, этапы развития и научная миссия института" },
@@ -124,8 +125,9 @@ export default function SectionLandingPage() {
         <SafeImage
           src={config.image}
           alt={config.title}
-          className="w-full h-full object-cover opacity-30"
+          className={`w-full h-full object-cover ${basePath === "/institute" ? "opacity-70" : "opacity-30"}`}
         />
+        {basePath === "/institute" && <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/60 to-primary/20" aria-hidden="true" />}
         <div className="absolute inset-0 flex items-end pb-8 px-4">
           <div className="max-w-[1280px] mx-auto w-full">
             <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "var(--font-display)" }}>

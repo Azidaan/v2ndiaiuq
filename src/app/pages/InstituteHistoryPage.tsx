@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import Breadcrumbs from "../components/layout/Breadcrumbs";
 import SafeImage from "../components/ui/SafeImage";
+import instituteBanner from "../../imports/institute-entrance-banner.png";
 
 const GOALS = [
   "Концентрация творческих усилий и более полное использование научного и технического потенциала в сфере разработки интеллектуальных и робототехнических систем, компьютерных информационных технологий, создания систем искусственного интеллекта и дистантных форм обучения.",
@@ -35,10 +36,11 @@ export default function InstituteHistoryPage() {
 
       <div className="relative h-56 sm:h-64 bg-primary overflow-hidden">
         <SafeImage
-          src="https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1200&h=400&fit=crop&auto=format"
+          src={instituteBanner}
           alt="История и миссия института"
-          className="w-full h-full object-cover opacity-30"
+          className="w-full h-full object-cover opacity-70"
         />
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/60 to-primary/20" aria-hidden="true" />
         <div className="absolute inset-0 flex items-end pb-8 px-4">
           <div className="max-w-[1280px] mx-auto w-full">
             <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "var(--font-display)" }}>
