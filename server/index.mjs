@@ -3,6 +3,7 @@ import cookie from "@fastify/cookie";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import { createLegacyAssetProxy } from "./legacyAssetProxy.mjs";
+import { bootstrapContent } from "./bootstrapContent.mjs";
 import bcrypt from "bcryptjs";
 import pg from "pg";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -410,6 +411,7 @@ if (isProduction && existsSync(dist)) {
 
 await migrate();
 await ensureAdmin();
+await bootstrapContent({ pool, root, logger: app.log, enabled: process.env.BOOTSTRAP_CONTENT === "true" });
 legacyNewsSync = await createLegacyNewsSync({ pool, root, logger: app.log, enabled: process.env.LEGACY_NEWS_SYNC_ENABLED !== "false" });
 await app.listen({ host: "0.0.0.0", port });
 

@@ -21,5 +21,7 @@ services:
         value: "false"
       - key: LEGACY_ASSET_PROXY         # картинки перенесённых новостей — со старого сайта по требованию
         value: "true"
+      - key: BOOTSTRAP_CONTENT          # пустая база Neon наполнится материалами сайта при первом запуске
+        value: "true"
       - key: UPLOAD_DIR
         value: /app/uploads
