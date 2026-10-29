@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cookie from "@fastify/cookie";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
+import { createLegacyAssetProxy } from "./legacyAssetProxy.mjs";
 import bcrypt from "bcryptjs";
 import pg from "pg";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -383,11 +384,18 @@ app.delete("/api/admin/users/:id", { preHandler: manageUsers }, async (request) 
 await mkdir(uploadsRoot, { recursive: true });
 await app.register(fastifyStatic, { root: uploadsRoot, prefix: "/uploads/", decorateReply: false });
 
+// Бесплатный хостинг без постоянного диска: файлы перенесённых новостей подтягиваются
+// со старого сайта по требованию (см. legacyAssetProxy.mjs).
+const serveLegacyAsset = process.env.LEGACY_ASSET_PROXY === "true"
+  ? await createLegacyAssetProxy({ seedsDir: join(root, "server", "seeds", "legacy-news"), uploadsRoot, logger: app.log })
+  : null;
+
 const dist = join(root, "dist");
 if (isProduction && existsSync(dist)) {
   await app.register(fastifyStatic, { root: dist, prefix: "/" });
-  app.setNotFoundHandler((request, reply) => {
+  app.setNotFoundHandler(async (request, reply) => {
     const url = request.raw.url ?? "/";
+    if (serveLegacyAsset && url.startsWith("/uploads/legacy-news/") && (await serveLegacyAsset(request, reply))) return reply;
     if (url.startsWith("/api/")) return reply.code(404).send({ error: "Маршрут не найден" });
     // Отдавать index.html вместо отсутствующего файла нельзя: браузер получит
     // HTML вместо модуля и упадёт с невнятной ошибкой импорта вместо честного 404.

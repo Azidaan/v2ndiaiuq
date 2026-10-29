@@ -1,0 +1,25 @@
+# Render Blueprint: бесплатный веб-сервис из Dockerfile.
+# База PostgreSQL — внешняя (Neon): адрес вводится в панели Render, в репозиторий не попадает.
+services:
+  - type: web
+    name: guiaidn
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL          # строка подключения Neon, с ?sslmode=require
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD        # не короче 12 символов
+        sync: false
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: LEGACY_NEWS_SYNC_ENABLED   # на бесплатном тарифе автообход старого сайта не нужен
+        value: "false"
+      - key: LEGACY_ASSET_PROXY         # картинки перенесённых новостей — со старого сайта по требованию
+        value: "true"
+      - key: UPLOAD_DIR
+        value: /app/uploads
